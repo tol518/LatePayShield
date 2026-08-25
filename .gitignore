@@ -1,0 +1,24 @@
+# secrets — never commit
+.env
+.env.*
+!.env.example
+*.key
+*.seed
+
+# deps & build
+node_modules/
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
+
+# app
+.next/
+out/
+dist/
+
+# evidence/ IS committed on purpose: real testnet identifiers are the demo fallback.
+# Scripts must never write seeds or keys into it.
+
+.DS_Store

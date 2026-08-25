@@ -1,0 +1,36 @@
+{
+  "name": "latepay-shield",
+  "version": "0.1.0",
+  "description": "Verifiable payment compliance: XRPL Testnet payments verified on Flare Coston2.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tol518/LatePayShield.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/tol518/LatePayShield/issues"
+  },
+  "homepage": "https://github.com/tol518/LatePayShield#readme",
+  "private": true,
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^17.4.2",
+    "hardhat": "^2.29.1"
+  },
+  "dependencies": {
+    "@flarenetwork/flare-periphery-contracts": "^0.1.52",
+    "ethers": "^6.17.0",
+    "xrpl": "^5.1.0"
+  },
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test && npm run test:override-guard",
+    "check": "npm run compile && npm test",
+    "deploy:coston2": "hardhat run scripts/deploy.js --network coston2",
+    "spike:xrpl": "node scripts/xrpl-spike.js",
+    "test:override-guard": "HARDHAT_CHAIN_ID=114 hardhat test test/VerifierOverrideGuard.test.js"
+  }
+}
