@@ -1,150 +1,73 @@
 # LatePay Shield
 
-Turns an invoice into a verifiable payment agreement. A supplier confirms terms, a payer
-sends an XRPL Testnet payment, and a Flare Coston2 contract records the outcome — but only
-when an FDC attestation proof backs it.
+LatePay Shield turns confirmed invoice terms into a testnet payment agreement. XRPL supplies the payment record; a Flare Coston2 contract is designed to accept paid or overdue outcomes only when the corresponding FDC proof passes its matching rules.
 
-**Testnet prototype.** Not legally binding, not audited, holds no funds, moves no money.
-See "Claims policy" in [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md).
+**Prototype only:** testnets, no custody, no money movement, not legally binding, and not audited.
+
+## Current milestone
+
+| Capability | Current evidence |
+|---|---|
+| Canonical invoice hashing | Implemented in `lib/canonical.js`; local fixtures pass. |
+| Agreement state machine | Implemented in `contracts/LatePayShield.sol`; local mock-verifier tests pass. |
+| Verifier override guard | Local tests confirm a non-zero override is rejected at Coston2 chain ID `114`. |
+| XRPL Testnet payment | Validated transaction `4174F0EC...249309`, ledger `20202706`, `tesSUCCESS`. |
+| CI | Latest `main` workflow passed on 25 August 2026. |
+| Coston2 deployment | Not completed. |
+| Real FDC payment/non-payment proof | Not completed; this remains the main technical risk. |
+| Frontend | Not started. |
+
+See [`docs/project-status.md`](docs/project-status.md) for the complete verified, unverified, and blocked boundary.
 
 ## Setup
 
-Requires Node 24 (`brew install node@24`).
+Requires Node.js 24 and npm.
 
 ```bash
-npm install
-cp .env.example .env       # fill in; .env is git-ignored and must stay that way
-npm test
+npm ci
 ```
+
+On macOS/Linux and in CI:
+
+```bash
+npm run check
+```
+
+The current `test:override-guard` package script uses POSIX environment syntax and therefore fails in Windows `cmd.exe`. Until that script is made cross-platform, the equivalent PowerShell baseline is:
+
+```powershell
+npm run compile
+npx hardhat test
+$env:HARDHAT_CHAIN_ID = "114"
+npx hardhat test test/VerifierOverrideGuard.test.js
+```
+
+Never create `.env` from real-money wallets. If a network spike needs local values, copy `.env.example` and use throwaway faucet-funded testnet accounts only.
 
 ## Commands
 
-| Command | What it does |
+| Command | Purpose |
 |---|---|
-| `npm run check` | Local CI gate: compile and run the full test suite |
-| `npm test` | Full suite: state machine, canonical hashing, verifier guard (50 test executions, no network) |
-| `npm run test:override-guard` | Re-runs the guard test with chain id 114 to prove it rejects a fake verifier |
-| `npm run compile` | Compile against the Flare periphery package |
-| `npm run spike:xrpl` | P0 spike: real XRPL Testnet payment, writes `evidence/*.json` |
-| `npm run deploy:coston2` | Deploy to Coston2 (needs `COSTON2_PRIVATE_KEY` + C2FLR) |
+| `npm run compile` | Compile Solidity `0.8.25` for the Paris EVM target. |
+| `npm test` | Run the default suite, then the verifier guard; currently POSIX-shell only because of the second step. |
+| `npm run check` | Compile and run `npm test`; this is the GitHub Actions gate. |
+| `npm run test:override-guard` | Re-run the guard at chain ID `114`; currently POSIX-shell only. |
+| `npm run spike:xrpl` | Fund throwaway XRPL Testnet wallets, send a payment, and write non-secret evidence JSON. |
+| `npm run deploy:coston2` | Deploy with the enshrined verifier; requires a funded throwaway Coston2 key. |
 
-## Networks
+## Documentation map
 
-| | |
+| Document | Owns |
 |---|---|
-| Flare Coston2 RPC | `https://coston2-api.flare.network/ext/C/rpc` (chain id **114**, C2FLR) |
-| Coston2 explorer / faucet | [explorer](https://coston2-explorer.flare.network) · [faucet](https://faucet.flare.network/coston2) |
-| XRPL Testnet | `wss://s.altnet.rippletest.net:51233` · [explorer](https://testnet.xrpl.org) |
-| FDC verifier | `https://fdc-verifiers-testnet.flare.network` |
+| [`docs/project-context.md`](docs/project-context.md) | Product scope, MVP, claims, and event constraints. |
+| [`docs/architecture.md`](docs/architecture.md) | Implemented components, networks, dependencies, and target data flow. |
+| [`docs/design.md`](docs/design.md) | User journey, product states, evidence UX, and visual direction. |
+| [`docs/data-and-contracts.md`](docs/data-and-contracts.md) | Exact canonicalization, contract behavior, transitions, and matching semantics. |
+| [`docs/testing-and-demo.md`](docs/testing-and-demo.md) | Test matrix, CI, evidence ledger, demo, and fallback procedure. |
+| [`docs/project-status.md`](docs/project-status.md) | Current truth, blockers, known issues, and next priorities. |
+| [`docs/decisions.md`](docs/decisions.md) | Durable decisions and rationale. |
+| [`docs/reference/`](docs/reference/) | Detailed historical planning material; not automatically authoritative. |
 
-Verified against official Flare docs on 25 August 2026. Re-check before demo day.
-Mainnet is deliberately absent from `hardhat.config.js` so demo data cannot target real funds.
+## Public-repository safety
 
-## Development pipeline
-
-GitHub Actions runs locked dependency installation, compilation, all tests, and a
-high-severity runtime dependency audit for every pull request and push to `main`.
-Dependabot checks npm packages weekly and GitHub Actions monthly.
-
-Work should land through short-lived branches and focused pull requests. Coston2 deployment
-remains manual: CI never receives wallet keys and a passing workflow is not presented as
-network or FDC evidence.
-
-## Integration contract
-
-Agreed boundary between the protocol side and the application side. Change it in one place
-or the hashes diverge.
-
-**Canonical terms.** [`lib/canonical.js`](./lib/canonical.js) is the only implementation.
-Both frontend and backend import it — never reimplement serialization.
-`invoiceHash = keccak256(utf8(JSON.stringify(canonical)))`, fixed field order, no whitespace,
-all numbers as strings, `termsVersion: 1`.
-
-```json
-{"termsVersion":1,"invoiceNumber":"INV-2026-001","supplierName":"Maya Design Studio",
- "payerName":"Acme Ltd","currency":"XRP_TESTNET","amountDrops":"2000000",
- "xrplDestination":"r...","destinationTag":"2026001","dueAt":"1788264000"}
-```
-
-**Contract status enum** — [`contracts/LatePayShield.sol`](./contracts/LatePayShield.sol):
-
-| On-chain | UI label | Meaning |
-|---|---|---|
-| `None` (0) | — | No such agreement |
-| `Active` (1) | `ACTIVE` | Awaiting payment or deadline |
-| `PaidVerified` (2) | `PAID_VERIFIED` | FDC-proved matching payment before the deadline |
-| `OverdueVerified` (3) | `OVERDUE_VERIFIED` | FDC-proved absence of a qualifying payment |
-| `Disputed` (4) | `DISPUTED` | Supplier flagged for human review; informational only |
-
-`DRAFT`, `PAYMENT_SUBMITTED`, and `OVERDUE_PENDING` are **UI-only** and carry no evidence.
-`OVERDUE_PENDING` is derived as `status == Active && now > dueAt`. It must never be
-presented as a verified outcome.
-
-**Events:** `AgreementCreated`, `PaymentVerified`, `NonPaymentVerified`, `Disputed`.
-
-## How verification actually works
-
-`ContractRegistry.getFdcVerification()` returns an `IFdcVerification` that inherits
-`verifyXRPPayment()` and `verifyXRPPaymentNonexistence()`. The contract checks the Merkle
-proof itself, so **no team-controlled verifier address is involved** — the proof is the
-authority, not the caller. Both outcome functions are permissionless by design.
-
-Attestation types (from the periphery package, both `@custom:supported XRP, testXRP`):
-
-- `IXRPPayment` — id `0x08`. Request body is just `transactionId`.
-- `IXRPPaymentNonexistence` — id `0x09`. Requires an explicit ledger range.
-
-### Two correctness traps already handled
-
-1. **Strictly-greater-than.** The nonexistence type searches for a payment *greater than*
-   the requested `amount`. Requesting `expectedDrops` would ignore a payment of exactly
-   `expectedDrops` and confirm a **false overdue**. The contract requires the request to
-   encode `expectedDrops - 1`, and rejects anything else.
-2. **Late payment.** A real payment arriving after `dueAt` reverts with `PaidAfterDeadline`
-   rather than becoming `PAID_VERIFIED`. The supplier resolves it via `markDisputed`.
-
-Non-matching proofs revert instead of producing a soft "unmatched" state, so a false
-`PAID_VERIFIED` cannot be written.
-
-### The test seam is not a backdoor
-
-The constructor takes an `fdcVerificationOverride` so the state machine can be tested
-without a live attestation round. Ungated, that would be a genuine backdoor — a deployment
-pointed at a verifier that approves everything would emit `PaymentVerified` events
-indistinguishable on-chain from real ones.
-
-The constructor therefore **rejects any non-zero override unless `block.chainid` is 31337**,
-the local test chain. On Coston2 the enshrined `FdcVerification` is the only verifier that
-can be used, whatever the deployer intended. `npm run test:override-guard` re-runs the guard
-under chain id 114 and asserts the deploy reverts with `VerifierOverrideNotAllowed`.
-
-## Status
-
-| Step | State |
-|---|---|
-| Repo, Hardhat, Coston2 config | ✅ |
-| CI workflow | ✅ configured; first successful GitHub run pending |
-| Agreement contract + 50 local test executions | ✅ (mock verifier — proves the state machine, **not** FDC) |
-| Canonical hashing shared module | ✅ |
-| Real XRPL Testnet payment | ✅ see [`evidence/`](./evidence) |
-| Coston2 deployment | ⬜ needs a funded key |
-| FDC XRPPayment proof | ⬜ **the real risk** |
-| FDC XRPPaymentNonexistence proof | ⬜ |
-| Frontend | ⬜ |
-
-## Known unverified assumptions
-
-- **`standardAddressHash()`** in `lib/canonical.js` is inferred from the interface docs and
-  has **not** been confirmed against a real attestation response. Confirm by requesting an
-  `XRPPayment` attestation for the transaction in `evidence/` and checking that the returned
-  `receivingAddressHash` matches. Until then, destination matching is unproven.
-- The FDC verifier may require an API key; not yet obtained.
-- DA Layer base URL not yet confirmed (`FDC_DA_LAYER_BASE_URL` is blank).
-- `startLedger` is supplied by the creator and cannot be checked on-chain. It is a claim,
-  corroborated off-chain against the agreement's creation block.
-
-## Security
-
-Testnets only. No mainnet network is configured. `.env` is git-ignored; wallet seeds are
-never written to `evidence/`. No invoice text, names, or documents go on-chain — only
-hashes and identifiers.
+`.env`, key/seed files, dependencies, build output, and coverage are ignored. The committed `evidence/` directory is intentionally public and may contain only non-secret testnet identifiers. Treat anything already pushed as permanently public; rotate an exposed secret rather than merely deleting it.
