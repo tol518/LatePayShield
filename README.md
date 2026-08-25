@@ -48,8 +48,7 @@ Dependabot checks npm packages weekly and GitHub Actions monthly.
 
 Work should land through short-lived branches and focused pull requests. Coston2 deployment
 remains manual: CI never receives wallet keys and a passing workflow is not presented as
-network or FDC evidence. See [`ROADMAP.md`](./ROADMAP.md) for phases, gates, and the order of
-work from the current protocol foundation through the real testnet vertical slice.
+network or FDC evidence.
 
 ## Integration contract
 
@@ -124,7 +123,7 @@ under chain id 114 and asserts the deploy reverts with `VerifierOverrideNotAllow
 | Step | State |
 |---|---|
 | Repo, Hardhat, Coston2 config | ✅ |
-| CI workflow and delivery roadmap | ✅ configured; first GitHub run pending |
+| CI workflow | ✅ configured; first successful GitHub run pending |
 | Agreement contract + 50 local test executions | ✅ (mock verifier — proves the state machine, **not** FDC) |
 | Canonical hashing shared module | ✅ |
 | Real XRPL Testnet payment | ✅ see [`evidence/`](./evidence) |
