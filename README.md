@@ -9,12 +9,13 @@ LatePay Shield turns confirmed invoice terms into a testnet payment agreement. X
 | Capability | Current evidence |
 |---|---|
 | Canonical invoice hashing | Implemented in `lib/canonical.js`; local fixtures pass. |
+| FDC XRPL address hash | Externally verified against a real `XRPPayment` response. |
 | Agreement state machine | Implemented in `contracts/LatePayShield.sol`; local mock-verifier tests pass. |
 | Verifier override guard | Local tests confirm a non-zero override is rejected at Coston2 chain ID `114`. |
 | XRPL Testnet payment | Validated transaction `4174F0EC...249309`, ledger `20202706`, `tesSUCCESS`. |
 | CI | Latest `main` workflow passed on 25 August 2026. |
-| Coston2 deployment | Not completed. |
-| Real FDC payment/non-payment proof | Not completed; this remains the main technical risk. |
+| Coston2 deployment | Deployed at `0x4A49...78B1`; public readback passed. |
+| Real FDC payment/non-payment proof | Real payment proof acquired for hash compatibility; submission to an agreement and non-payment proof remain. |
 | Frontend | Not started. |
 
 See [`docs/project-status.md`](docs/project-status.md) for the complete verified, unverified, and blocked boundary.
@@ -54,6 +55,8 @@ Never create `.env` from real-money wallets. If a network spike needs local valu
 | `npm run test:override-guard` | Re-run the guard at chain ID `114`; currently POSIX-shell only. |
 | `npm run spike:xrpl` | Fund throwaway XRPL Testnet wallets, send a payment, and write non-secret evidence JSON. |
 | `npm run deploy:coston2` | Deploy with the enshrined verifier; requires a funded throwaway Coston2 key. |
+| `npm run deploy:check:coston2` | Read back deployed bytecode, chain, verifier override, and next agreement ID. |
+| `npm run fdc:submit` | Query the FDC request fee and submit `FDC_ABI_ENCODED_REQUEST` on Coston2. |
 
 ## Documentation map
 
@@ -64,7 +67,9 @@ Never create `.env` from real-money wallets. If a network spike needs local valu
 | [`docs/design.md`](docs/design.md) | User journey, product states, evidence UX, and visual direction. |
 | [`docs/data-and-contracts.md`](docs/data-and-contracts.md) | Exact canonicalization, contract behavior, transitions, and matching semantics. |
 | [`docs/testing-and-demo.md`](docs/testing-and-demo.md) | Test matrix, CI, evidence ledger, demo, and fallback procedure. |
+| [`docs/tooling-runbook.md`](docs/tooling-runbook.md) | Exact testnet tools, URLs, inputs, outputs, and secret-handling rules for XRPL, FDC, and Coston2. |
 | [`docs/project-status.md`](docs/project-status.md) | Current truth, blockers, known issues, and next priorities. |
+| [`docs/issue-board.md`](docs/issue-board.md) | Task ownership, progress, and immediate execution order. |
 | [`docs/decisions.md`](docs/decisions.md) | Durable decisions and rationale. |
 | [`docs/reference/`](docs/reference/) | Detailed historical planning material; not automatically authoritative. |
 

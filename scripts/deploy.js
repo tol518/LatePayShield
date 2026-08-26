@@ -23,7 +23,11 @@ async function main() {
   await shield.waitForDeployment();
 
   const address = await shield.getAddress();
+  const deploymentTransaction = shield.deploymentTransaction();
   console.log(`\nLatePayShield deployed: ${address}`);
+  if (deploymentTransaction) {
+    console.log(`Transaction: ${deploymentTransaction.hash}`);
+  }
   console.log(`Explorer: https://coston2-explorer.flare.network/address/${address}`);
   console.log(`\nAdd to .env:\nLATEPAY_SHIELD_ADDRESS=${address}`);
 }

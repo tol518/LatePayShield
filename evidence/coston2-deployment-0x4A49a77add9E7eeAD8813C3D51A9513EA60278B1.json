@@ -1,0 +1,14 @@
+{
+  "network": "flare-testnet-coston2",
+  "chainId": 114,
+  "contract": "LatePayShield",
+  "contractAddress": "0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1",
+  "deployer": "0xBA098299018aa56eE7Cf2372d7017B331a413E0B",
+  "deploymentTransaction": "0xfec3a90684482dd2cbc04c5a2e25a948968570b64fd1c7e610f13dfdcb487ae3",
+  "blockNumber": 34520604,
+  "blockTimestamp": 1787765183,
+  "fdcVerificationOverride": "0x0000000000000000000000000000000000000000",
+  "deployedBytecodeBytes": 6033,
+  "initialNextAgreementId": 1,
+  "explorer": "https://coston2-explorer.flare.network/address/0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1"
+}
