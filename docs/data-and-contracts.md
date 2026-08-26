@@ -1,6 +1,8 @@
 # Data and Contract Boundaries
 
-**Current status:** Canonicalization and the local agreement contract are implemented and tested. Real Coston2 deployment and FDC proof compatibility are not verified.
+**Current status:** Canonicalization and the local agreement contract are implemented
+and tested. Coston2 deployment and FDC address-hash compatibility are externally
+verified; a real FDC proof has not yet been accepted by a LatePayShield agreement.
 
 ## Canonical terms
 
@@ -39,15 +41,17 @@ invoiceHash = keccak256(UTF8(JSON.stringify(canonicalObject)))
 
 `JSON.stringify` has no whitespace and the object is rebuilt in the fixed field order. Any semantic change to these rules requires a terms-version decision, shared fixtures, and coordinated migration.
 
-## Address hash limitation
+## FDC address hash
 
 `standardAddressHash(xrplAddress)` currently returns:
 
 ```text
-keccak256(abi.encode(string(trimmedAddress)))
+keccak256(UTF8(trimmedAddress))
 ```
 
-This encoding is inferred, not verified. It must be compared with `receivingAddressHash` from a real `XRPPayment` attestation before destination matching is claimed to work on FDC.
+This was externally verified against the `XRPPayment` FDC response for XRPL Testnet
+transaction `A0DA3E67...ADF3565`: destination `rUCR23Ys3TWFMqdNDzFehUjyxj8ZfUYo9V`
+returned `receivingAddressHash` `0x4abeacf6...9ddbfb8f`.
 
 ## Agreement storage
 
@@ -57,7 +61,7 @@ Each `Agreement` contains:
 |---|---|---|
 | `invoiceHash` | `bytes32` | Commitment to canonical confirmed terms. |
 | `supplier` | `address` | EVM caller that created the agreement. |
-| `xrplDestinationHash` | `bytes32` | Provisional FDC-format destination commitment. |
+| `xrplDestinationHash` | `bytes32` | FDC-format destination commitment. |
 | `destinationTag` | `uint256` | Required XRPL destination tag. |
 | `expectedDrops` | `uint64` | Minimum accepted payment amount. |
 | `startLedger` | `uint64` | Creator-claimed lower evidence bound. |

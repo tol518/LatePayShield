@@ -3,6 +3,7 @@ const {
   canonicalizeTerms,
   serializeTerms,
   invoiceHash,
+  standardAddressHash,
   FIELD_ORDER,
 } = require("../lib/canonical");
 
@@ -92,5 +93,19 @@ describe("canonical terms", function () {
 
   it("refuses any currency other than XRP_TESTNET", function () {
     expect(() => invoiceHash({ ...TERMS, currency: "XRP" })).to.throw(/testnet only/);
+  });
+});
+
+describe("FDC standard XRPL address hash", function () {
+  it("matches the real XRPPayment attestation response", function () {
+    expect(standardAddressHash("rUCR23Ys3TWFMqdNDzFehUjyxj8ZfUYo9V")).to.equal(
+      "0x4abeacf6f2ad7fbb211ba1b703aecc2edd2933e84039bcade6e6488d9ddbfb8f"
+    );
+  });
+
+  it("trims incidental whitespace before hashing", function () {
+    expect(standardAddressHash("  rUCR23Ys3TWFMqdNDzFehUjyxj8ZfUYo9V  ")).to.equal(
+      standardAddressHash("rUCR23Ys3TWFMqdNDzFehUjyxj8ZfUYo9V")
+    );
   });
 });

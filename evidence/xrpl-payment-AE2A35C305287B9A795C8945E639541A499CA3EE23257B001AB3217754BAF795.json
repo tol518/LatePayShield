@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-08-26T07:59:43.571Z",
+  "network": "xrpl-testnet",
+  "endpoint": "wss://s.altnet.rippletest.net:51233",
+  "txHash": "AE2A35C305287B9A795C8945E639541A499CA3EE23257B001AB3217754BAF795",
+  "ledgerIndex": 20230385,
+  "transactionResult": "tesSUCCESS",
+  "sourceAddress": "rHix3cGmbJkhPGMGKjKJnFGZdGbdjRWgrq",
+  "destinationAddress": "rDNBuBC1mJ9CPU77p4u4NKEJjCb9E781xm",
+  "amountDrops": "2000000",
+  "destinationTag": 2026001,
+  "invoiceReference": "INV-2026-001",
+  "memoDataHex": "494E562D323032362D303031",
+  "explorer": "https://testnet.xrpl.org/transactions/AE2A35C305287B9A795C8945E639541A499CA3EE23257B001AB3217754BAF795"
+}

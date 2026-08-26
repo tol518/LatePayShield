@@ -1,6 +1,9 @@
 # Architecture
 
-**Current status:** Protocol foundation implemented locally; XRPL payment spike completed; Coston2 deployment, FDC proof acquisition, application layer, and frontend are not implemented.
+**Current status:** Protocol foundation implemented locally; XRPL payment spike,
+Coston2 deployment, and FDC `XRPPayment` request/proof compatibility are verified.
+Submission of a real proof to a fresh agreement, the application layer, and frontend
+are not implemented.
 
 ## Implemented repository map
 
@@ -106,7 +109,7 @@ The future application must handle human confirmation, agreement creation, proof
 
 - Invoice input and future AI output are untrusted until human confirmation.
 - Browser/database state is not payment proof.
-- `standardAddressHash()` is unverified until compared with a real FDC response.
+- `standardAddressHash()` uses `keccak256(UTF8(trimmedAddress))`, verified against a real FDC `XRPPayment` response.
 - `startLedger` is supplied by the agreement creator and cannot be checked on-chain.
 - The XRPL memo is recorded in evidence but is not checked by the current contract.
 - Local mock-verifier tests prove state-machine behavior only.
