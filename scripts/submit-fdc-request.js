@@ -1,4 +1,8 @@
+const fs = require("fs");
+const path = require("path");
 const { network, ethers } = require("hardhat");
+
+const EVIDENCE_DIR = path.join(__dirname, "..", "evidence");
 
 const FDC_HUB = "0x48aC463d7975828989331F4De43341627b9c5f1D";
 const FDC_REQUEST_FEE_CONFIGURATIONS =
@@ -20,16 +24,33 @@ const protocolsV2Abi = [
   "function votingEpochDurationSeconds() external view returns (uint64)",
 ];
 
+/** Whatever `npm run fdc:prepare` last produced, so request bytes are not retyped. */
+function latestPreparedRequest() {
+  if (!fs.existsSync(EVIDENCE_DIR)) return null;
+  const files = fs
+    .readdirSync(EVIDENCE_DIR)
+    .filter((f) => f.startsWith("fdc-request-") && f.endsWith(".json"))
+    .map((f) => path.join(EVIDENCE_DIR, f))
+    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+  if (!files.length) return null;
+  return { file: files[0], ...JSON.parse(fs.readFileSync(files[0], "utf8")) };
+}
+
 async function main() {
   if (network.config.chainId !== 114) {
     throw new Error("Refusing to submit outside Coston2 (chain ID 114).");
   }
 
-  const request = process.env.FDC_ABI_ENCODED_REQUEST;
+  const prepared = latestPreparedRequest();
+  const request = process.env.FDC_ABI_ENCODED_REQUEST || prepared?.requestBytes;
   if (!request || !ethers.isHexString(request) || request.length < 4) {
     throw new Error(
-      "Set FDC_ABI_ENCODED_REQUEST in .env to the public 0x... value returned by the FDC verifier."
+      "No request bytes. Run `npm run fdc:prepare`, or set FDC_ABI_ENCODED_REQUEST in .env " +
+        "to the public 0x... value returned by the FDC verifier."
     );
+  }
+  if (prepared && request === prepared.requestBytes) {
+    console.log(`Request source: ${prepared.file}`);
   }
 
   const [submitter] = await ethers.getSigners();
@@ -82,6 +103,35 @@ async function main() {
       votingEpochDurationSeconds;
     console.log(`Voting round (calculated): ${roundId}`);
     console.log(`Finalizations: https://coston2-systems-explorer.flare.network/voting-round/${roundId}?tab=fdc`);
+
+    // The round is only derivable from this block, so it is recorded next to the
+    // request bytes rather than left for someone to copy out of the console.
+    const outPath =
+      prepared && request === prepared.requestBytes
+        ? prepared.file
+        : path.join(EVIDENCE_DIR, `fdc-request-${tx.hash.slice(2).toUpperCase()}.json`);
+    const existing = prepared && outPath === prepared.file ? prepared : {};
+    delete existing.file;
+    fs.writeFileSync(
+      outPath,
+      JSON.stringify(
+        {
+          ...existing,
+          requestBytes: request,
+          submittedAt: new Date().toISOString(),
+          submitter: submitter.address,
+          submissionTransaction: tx.hash,
+          blockNumber: receipt.blockNumber,
+          votingRoundId: Number(roundId),
+          systemsExplorer: `https://coston2-systems-explorer.flare.network/voting-round/${roundId}?tab=fdc`,
+          explorer: `https://coston2-explorer.flare.network/tx/${tx.hash}`,
+        },
+        null,
+        2
+      ) + "\n"
+    );
+    console.log(`\nSaved: ${outPath}`);
+    console.log(`\nNext: npm run fdc:proof (waits for the round to finalize)`);
   }
 }
 

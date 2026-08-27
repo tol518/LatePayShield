@@ -49,7 +49,7 @@ The application stack remains open. The earlier Next.js/TypeScript/Tailwind sugg
 |---|---|
 | Flare Coston2 | RPC `https://coston2-api.flare.network/ext/C/rpc`, chain ID `114` |
 | XRPL Testnet | WebSocket `wss://s.altnet.rippletest.net:51233` |
-| FDC verifier | `https://fdc-verifiers-testnet.flare.network`; API-key requirement not confirmed |
+| FDC verifier | `https://fdc-verifiers-testnet.flare.network`; requires `X-API-KEY`, published public test value |
 | FDC DA layer | Base URL not configured or confirmed |
 
 Mainnet is deliberately absent from `hardhat.config.js`. The XRPL spike refuses endpoints that do not visibly identify as altnet/testnet.

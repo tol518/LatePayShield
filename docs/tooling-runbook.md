@@ -1,6 +1,6 @@
 # Testnet Tooling Runbook
 
-**Last verified:** 26 August 2026. This is the handoff page for a developer or
+**Last verified:** 27 August 2026. This is the handoff page for a developer or
 agent repeating the XRPL → FDC → Coston2 work. Use only throwaway testnet wallets.
 Never paste a private key, seed phrase, recovery phrase, or `.env` file into a
 Swagger form, chat, issue, commit, or evidence file.
@@ -14,11 +14,12 @@ Swagger form, chat, issue, commit, or evidence file.
 | Fund Coston2 gas | Flare faucet | <https://faucet.flare.network/coston2> | Test C2FLR for deployment and FDC request fees. Enter only the public `0x...` wallet address. |
 | Send a reproducible XRPL Testnet payment | XRPL JavaScript client and project script | `npm run spike:xrpl` | Transaction hash, ledger index, addresses, amount, tag, and non-secret evidence JSON. The script uses `wss://s.altnet.rippletest.net:51233` and funds temporary wallets automatically. |
 | Inspect the XRPL payment | XRPL Testnet Explorer | `https://testnet.xrpl.org/transactions/<XRPL_TX_HASH>` | Confirm `tesSUCCESS`, destination, amount, destination tag, and ledger. |
-| Convert an XRPL transaction into an FDC request | XRP verifier Swagger | <https://fdc-verifiers-testnet.flare.network/verifier/xrp/api-doc> | Public `abiEncodedRequest`. Use **POST** `/verifier/xrp/XRPPayment/prepareRequest`—not the generic `/Payment` route. |
+| Convert an XRPL transaction into an FDC request | Project script (Swagger only to explore) | `npm run fdc:prepare` | Public `abiEncodedRequest`, saved to `evidence/fdc-request-<XRPL_TX>.json`. It posts to `/verifier/xrp/XRPPayment/prepareRequest`—not the generic `/Payment` route—and needs `FDC_VERIFIER_API_KEY`. Swagger is at <https://fdc-verifiers-testnet.flare.network/verifier/xrp/api-doc>. |
 | Submit an FDC request and pay its live fee | Project Hardhat script + Coston2 RPC | `npm run fdc:submit` | Coston2 request transaction hash and calculated voting round. It queries the fee; do not guess it. |
 | Inspect deployment and request transactions | Coston2 Explorer | <https://coston2-explorer.flare.network/> | Public transaction/contract URLs. The deployed LatePayShield contract is `0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1`. |
 | Track FDC round finalization | Flare Systems Explorer | `https://coston2-systems-explorer.flare.network/voting-round/<ROUND>?tab=fdc` | The relevant finalized voting round. |
-| Retrieve the finalized FDC proof/response | Coston2 DA Swagger | <https://ctn2-data-availability.flare.network/api-doc#/fdc/fdc_proof_by_request_round_create> | Proof data including `response.responseBody.receivingAddressHash`. |
+| Retrieve the finalized FDC proof/response | Project Hardhat script + Coston2 DA layer | `npm run fdc:proof` | The Merkle proof and ABI-encoded response, saved to `evidence/fdc-proof-<ROUND>-<XRPL_TX>.json`. It polls until the round finalizes, re-encodes the response to confirm it is byte-identical, and calls the live `FdcVerification` before saving. No API key is required. Swagger is at <https://ctn2-data-availability.flare.network/api-doc#/fdc/fdc_proof_by_request_round_create>. |
+| Submit a finalized proof to the agreement contract | Project Hardhat script | `AGREEMENT_ID=<id> npm run fdc:record` | The public Coston2 transaction that moves an agreement to `PaidVerified`, saved to `evidence/coston2-paid-agreement-<id>.json`. |
 | Confirm deployment has the expected live-network configuration | Project Hardhat script + public RPC | `npm run deploy:check:coston2` | Chain ID `114`, deployed bytecode, zero verifier override, and `nextAgreementId`. |
 
 The Coston2 RPC used by the Hardhat configuration is
@@ -26,12 +27,25 @@ The Coston2 RPC used by the Hardhat configuration is
 secret. Re-check the Flare network overview before a future demo because testnet
 endpoints can change.
 
+## The verifier API key
+
+The XRP verifier rejects an unauthenticated request with `401 Unauthorized`, so a key
+is mandatory. Flare publishes one for the testnet verifiers:
+
+```
+00000000-0000-0000-0000-000000000000
+```
+
+It is a published public test value, not a secret, so it is the default in
+`.env.example` and `npm run fdc:prepare` works out of the box. The DA layer is
+separate and needs no key at all.
+
 ## Exact successful request pattern
 
-In the XRP verifier Swagger, click **Authorize** and provide the published public
-test API key when the UI requires it. Then use the returned transaction hash and a
-public EVM address that will own the proof. `proofOwner` must be exactly 20 bytes:
-`0x` followed by 40 hexadecimal characters.
+`npm run fdc:prepare` builds this request for you; the shape is recorded here because
+Swagger is still the quickest way to explore a response by hand. Use the XRPL
+transaction hash and a public EVM address that will own the proof. `proofOwner` must
+be exactly 20 bytes: `0x` followed by 40 hexadecimal characters.
 
 ```json
 {
@@ -44,19 +58,28 @@ public EVM address that will own the proof. `proofOwner` must be exactly 20 byte
 }
 ```
 
-Copy only the returned `abiEncodedRequest` into the ignored `.env` variable below.
-It is **request data, not an address**, so it will be rejected if entered into a
-wallet/faucet address field.
+The verifier is deterministic: the same transaction and `proofOwner` reproduce the
+same `abiEncodedRequest` byte for byte, which was confirmed against the bytes still
+in the `AttestationRequest` log of Coston2 transaction `0x6850...c99f`.
+
+`abiEncodedRequest` is **request data, not an address**, so it will be rejected if
+entered into a wallet or faucet address field. Setting it by hand is optional now
+that `fdc:prepare` writes it to `evidence/` for the next command to read.
 
 ```dotenv
-# Public request bytes are acceptable locally but do not need to be committed.
-FDC_ABI_ENCODED_REQUEST=0x...
-
 # Public deployed contract address; not secret.
 LATEPAY_SHIELD_ADDRESS=0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1
 
+# Published public test value; not a secret.
+FDC_VERIFIER_API_KEY=00000000-0000-0000-0000-000000000000
+
 # Secret: never commit, print, or share this value.
 COSTON2_PRIVATE_KEY=0x...
+
+# Optional. Only set these to override what the scripts pass between each other.
+FDC_ABI_ENCODED_REQUEST=
+FDC_VOTING_ROUND=
+FDC_PROOF_OWNER=
 ```
 
 `npm run fdc:submit` requires the private key only because it signs the Coston2
@@ -78,12 +101,13 @@ acceptable; never export a wallet that holds real funds.
    `COSTON2_PRIVATE_KEY`.
 3. Create an XRPL payment with `npm run spike:xrpl`; retain its public transaction
    hash and inspect it in the XRPL Testnet Explorer.
-4. Use the **XRPPayment** Swagger endpoint to get `abiEncodedRequest`; put it in
-   `FDC_ABI_ENCODED_REQUEST`.
-5. Run `npm run fdc:submit`; retain the public Coston2 request transaction and its
-   voting round. Wait for that round to finalize in Systems Explorer.
-6. In DA Swagger retrieve the proof using the public request bytes and round. For
-   the completed compatibility check, the returned `receivingAddressHash` was
+4. Run `npm run fdc:prepare` to get `abiEncodedRequest`. It defaults to the newest
+   XRPL payment in `evidence/`; pass a transaction hash as an argument to override.
+5. Run `npm run fdc:submit`; it picks up the prepared request, queries the live fee,
+   and writes the Coston2 request transaction and voting round back to the same file.
+6. Run `npm run fdc:proof`. It polls the DA layer until the round finalizes, then
+   saves the proof. For the completed compatibility check, the returned
+   `receivingAddressHash` was
    `0x4abeacf6f2ad7fbb211ba1b703aecc2edd2933e84039bcade6e6488d9ddbfb8f`.
 7. Verify the project's matching logic locally:
 
@@ -104,8 +128,9 @@ acceptable; never export a wallet that holds real funds.
 
 ## Avoid the previous dead ends
 
-- A `401 Unauthorized` from verifier Swagger means the required public test API key
-  was not supplied through **Authorize**; it is not a problem with the XRPL hash.
+- A `401 Unauthorized` from the verifier means `FDC_VERIFIER_API_KEY` is missing or
+  wrong; it is not a problem with the XRPL hash. In Swagger the same key goes in
+  through **Authorize**.
 - A `400` saying `proofOwner` is invalid means a placeholder or non-EVM address was
   used. Use the MetaMask public address, not an XRPL `r...` address.
 - The verified-code ABI panel in the Coston2 explorer is read-only. It is not the
@@ -115,7 +140,12 @@ acceptable; never export a wallet that holds real funds.
   predates any fresh agreement and cannot prove that agreement was paid.
 - A real `PaidVerified` result still requires: create an agreement first, send a
   new matching XRPL payment afterward, obtain its new FDC proof, and submit that
-  proof to `recordVerifiedPayment`.
+  proof with `AGREEMENT_ID=<id> npm run fdc:record`. No command creates the
+  agreement yet, so this is still blocked.
+- A proof that `verifyXRPPayment` accepts can still be rejected by `LatePayShield`.
+  The verifier only attests that the response is in the round's Merkle tree; the
+  agreement's destination, amount, tag, ledger window, and deadline are checked
+  separately and each revert has its own named error.
 
 ## Public versus secret information
 

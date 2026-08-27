@@ -1,7 +1,7 @@
 # Testing, Verification, CI, and Demo
 
-**Last verified locally:** 26 August 2026 on macOS with Node `24.19.0`
-**Remote baseline:** `main` commit `e459042`
+**Last verified locally:** 27 August 2026 on Windows with Node `24.19.0`
+**Remote baseline:** `main` commit `dc4640b`
 
 ## Verification levels
 
@@ -16,9 +16,9 @@ The product, docs, and pitch must identify the actual level.
 ## Local baseline
 
 - Solidity compilation: 123 files compiled successfully for Paris EVM.
-- Default Hardhat suite: 48 passing executions.
+- Default Hardhat suite: 54 passing executions.
 - Chain-ID-114 verifier guard: 4 passing executions.
-- Total: 52 passing test executions.
+- Total: 58 passing test executions.
 - Runtime dependency audit: `npm audit --omit=dev --audit-level=high` found 0 vulnerabilities.
 
 The committed `npm run check` script is not currently cross-platform: `HARDHAT_CHAIN_ID=114 ...` fails in Windows `cmd.exe`. The equivalent Windows commands are documented in `README.md`. This is a command defect even though the underlying four guard executions pass when the variable is set through PowerShell.
@@ -36,6 +36,14 @@ The committed `npm run check` script is not currently cross-platform: `HARDHAT_C
 - missing/empty field rejection;
 - amount, destination-tag, timestamp, and currency bounds.
 - real FDC `receivingAddressHash` fixture and whitespace-equivalent address hashing.
+
+### FDC proof serialization
+
+`test/fdc-proof.test.js` runs offline against the committed round-`1437032` proof and
+covers decoding the DA response into the contract's `Proof` struct, byte-exact
+re-encoding, leaf sensitivity to a single altered field, agreement of the response's
+`receivingAddressHash` with `standardAddressHash()`, and encoding a
+`recordVerifiedPayment` call without reshaping the struct.
 
 ### Agreement contract
 
@@ -71,7 +79,7 @@ The `main` workflow for merge commit `e459042` completed successfully on 25 Augu
 | Override guard | Local tests at 31337 and 114 | `test/VerifierOverrideGuard.test.js` | Non-zero live-network override rejected. |
 | XRPL payment | Live Testnet transaction | `4174F0EC6537F2E71DAEFD7E0412CB885BCF44F63A5D9E233042251B15249309` | Rechecked live: validated, ledger `20202706`, `tesSUCCESS`, 2,000,000 drops, destination tag `2026001`, memo `INV-2026-001`. |
 | Coston2 deployment | Live testnet deployment | `0xfec3a90684482dd2cbc04c5a2e25a948968570b64fd1c7e610f13dfdcb487ae3` | Contract `0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1`; chain `114`; zero verifier override; public RPC readback passed. |
-| FDC payment proof | Real Coston2 request and DA response | XRPL transaction `A0DA3E67...ADF3565`; Coston2 request `68503B0C...6BC99F`; voting round `1437032` | `receivingAddressHash` matched the corrected local hash. Proof submission to `LatePayShield` remains pending. |
+| FDC payment proof | Real DA proof accepted by the live verifier | XRPL transaction `A0DA3E67...ADF3565`; Coston2 request `68503B0C...6BC99F`; voting round `1437032` | `npm run fdc:proof` retrieved it, re-encoding is byte-exact, and `FdcVerification` at `0x9065...B933` returned true. Submission to `LatePayShield` remains pending. |
 | FDC non-payment proof | Planned | None | Not implemented. |
 | FTSO | Optional/planned | None | Not implemented. |
 | Frontend | Planned | None | Not implemented. |
@@ -91,17 +99,17 @@ and DA URLs—is in [`tooling-runbook.md`](tooling-runbook.md).
    npm run spike:xrpl
    ```
 
-2. In the XRP verifier Swagger, prepare `XRPPayment` using the transaction hash and
-   the published test API key. Put the returned public `abiEncodedRequest` in
-   `FDC_ABI_ENCODED_REQUEST`.
-3. Query the fee and submit the request to Coston2:
+2. Turn it into request bytes, submit the request, and retrieve the finalized proof.
+   Each command reads what the previous one wrote to `evidence/`, so nothing is
+   copied by hand:
 
    ```bash
-   npm run fdc:submit
+   npm run fdc:prepare   # published public test key, already in .env.example
+   npm run fdc:submit    # queries the live fee and records the voting round
+   npm run fdc:proof     # polls the DA layer until the round finalizes
    ```
 
-4. After its voting round finalizes, retrieve the DA proof using the same request
-   bytes and round ID. Compare `response.responseBody.receivingAddressHash` with:
+3. Compare `response.responseBody.receivingAddressHash` from the saved proof with:
 
    ```bash
    node -e "const { standardAddressHash } = require('./lib/canonical'); console.log(standardAddressHash('rUCR23Ys3TWFMqdNDzFehUjyxj8ZfUYo9V'))"
@@ -109,6 +117,12 @@ and DA URLs—is in [`tooling-runbook.md`](tooling-runbook.md).
 
 The real response and corrected implementation both produced
 `0x4abeacf6f2ad7fbb211ba1b703aecc2edd2933e84039bcade6e6488d9ddbfb8f`.
+
+`npm run fdc:proof` also re-encodes the decoded response and refuses to save unless
+the bytes match the DA layer exactly, then calls the enshrined `FdcVerification`
+before writing evidence. For round `1437032` that call returned true, so the saved
+proof is one `LatePayShield` would accept. The DA endpoint needs no API key, which
+makes retrieval reproducible without any credential.
 
 ### 2. Verify the Coston2 deployment — completed
 
@@ -138,16 +152,21 @@ Required order:
 1. Capture the current validated XRPL ledger.
 2. Create a fresh agreement on `0x4A49...78B1` using the corrected destination hash.
 3. Send a new matching XRPL Testnet payment after the agreement transaction confirms.
-4. Prepare its `XRPPayment`, run `npm run fdc:submit`, and retrieve the finalized DA proof.
-5. Submit that proof to `recordVerifiedPayment` and confirm the agreement reads back as
-   `PaidVerified` with matching destination, amount, tag, ledger, and deadline.
+4. Run `npm run fdc:prepare`, `npm run fdc:submit`, and `npm run fdc:proof` for it.
+5. Submit that proof and confirm the agreement reads back as `PaidVerified` with
+   matching destination, amount, tag, ledger, and deadline:
 
-Agreement creation, DA retrieval, and proof submission commands are not implemented
-yet; this is the remaining integration work, not a completed verification claim.
+   ```bash
+   AGREEMENT_ID=<id> npm run fdc:record
+   ```
+
+Step 2 has no command yet: nothing in the repository creates an agreement on the
+deployed contract, so the paid path cannot be started. `fdc:record` is written but
+has never run against a live agreement, so it is not a completed verification claim.
 
 ## Required next integration tests
 
-1. Submit the real `XRPPayment` proof to a deployed Coston2 agreement and retain contract/proof identifiers.
+1. Add an agreement-creation command, then submit a real `XRPPayment` proof to a deployed Coston2 agreement and retain contract/proof identifiers.
 2. Define a safe ledger range and obtain `XRPPaymentNonexistence` evidence.
 3. Confirm the `expectedDrops - 1` threshold using the real verifier response.
 4. Exercise network pending, timeout, rejection, and retry behavior through the future application.
