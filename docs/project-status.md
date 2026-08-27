@@ -1,8 +1,8 @@
 # Project Status
 
-**Last updated:** 26 August 2026
+**Last updated:** 27 August 2026
 **Phase:** Protocol foundation and FDC technical-risk spike
-**Current base:** Remote `main` commit `e459042`
+**Current base:** Remote `main` commit `dc4640b`
 
 This file records current truth. Target behavior belongs in the other documents.
 Task assignment and progress tracking live in `issue-board.md`.
@@ -14,11 +14,14 @@ The exact external tools and URLs used to create this evidence are recorded in
 - Repository contains a Node 24/Hardhat protocol foundation and locked dependency manifest.
 - `lib/canonical.js` implements deterministic version-1 terms and FDC address hashing; 14 local test executions pass.
 - `LatePayShield.sol` implements agreement creation, paid/non-payment proof matching, dispute state, and a guarded local verifier seam.
-- Contract and guard suites total 38 local test executions; combined with canonicalization, all 52 executions pass when run with platform-correct environment syntax.
+- Contract and guard suites total 38 local test executions; combined with canonicalization and FDC proof serialization, all 58 executions pass when run with platform-correct environment syntax.
 - Solidity `0.8.25` compilation succeeds for 123 files with Paris EVM target.
 - XRPL Testnet transaction `4174F0EC...249309` was rechecked live as validated, `tesSUCCESS`, ledger `20202706`, delivered amount 2,000,000 drops, and destination tag `2026001`.
 - `standardAddressHash()` was corrected to `keccak256(UTF8(trimmedAddress))` and verified against an FDC `XRPPayment` response for XRPL Testnet transaction `A0DA3E67...ADF3565` (Coston2 request transaction `68503B0C...6BC99F`, voting round `1437032`).
 - `LatePayShield` is deployed on Coston2 at `0x4A49...78B1` in transaction `0xfec3...7ae3`; public RPC readback confirms chain ID `114`, deployed bytecode, zero verifier override, and `nextAgreementId == 1`.
+- The DA-layer proof for voting round `1437032` was retrieved by `npm run fdc:proof`, re-encoded byte-for-byte, and accepted by the enshrined `FdcVerification` at `0x906507E0B64bcD494Db73bd0459d1C667e14B933`, which returned true for `verifyXRPPayment`. The retrieved proof and its request bytes are committed under `evidence/`.
+- The DA layer answers `proof-by-request-round-raw` without an API key, so proof retrieval is reproducible by anyone with no credentials.
+- `npm run fdc:prepare` reproduces the request bytes still held in the `AttestationRequest` log of Coston2 transaction `0x6850...c99f` byte for byte. The XRP verifier does require a key and returns `401` without one; the published public test value `00000000-0000-0000-0000-000000000000` is accepted and is now the default in `.env.example`.
 - GitHub Actions passed on `main` commit `e459042` on 25 August 2026.
 - Runtime-only high-severity npm audit reports 0 vulnerabilities.
 - `.env`, key/seed extensions, dependencies, build output, and coverage are ignored.
@@ -26,11 +29,12 @@ The exact external tools and URLs used to create this evidence are recorded in
 ## Implemented but not externally verified
 
 - Paid and overdue contract paths are tested using `MockFdcVerification`; no real FDC proof has been submitted to `LatePayShield`.
+- `npm run fdc:record` is written but unexercised: it needs a funded throwaway `COSTON2_PRIVATE_KEY` and a live agreement.
 - The creator-supplied `startLedger` cannot be corroborated on-chain.
 
 ## Not implemented
 
-- Automated DA-layer proof retrieval and submission of a real proof to `LatePayShield`.
+- Submission of a real proof to `LatePayShield`; no command creates an agreement on the deployed contract yet, so the paid path cannot be started.
 - Frontend, API/application layer, persistence, wallet UI, and evidence screen.
 - AI extraction/confirmation flow.
 - FTSO conversion.
@@ -44,7 +48,7 @@ The exact external tools and URLs used to create this evidence are recorded in
 
 ## Next priorities
 
-1. Add automated DA-layer proof retrieval, then submit a fresh real `XRPPayment` proof to the deployed agreement contract.
+1. Add an agreement-creation command, then run the full `fdc:prepare` → `fdc:record` chain against a fresh agreement and a payment made after it.
 2. Design and test the non-payment ledger window.
 3. Make the npm verification script cross-platform before relying on it as a universal local command.
 4. Begin the smallest evidence-focused frontend using the verified FDC proof shape.

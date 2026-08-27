@@ -1,6 +1,6 @@
 # Issue Board
 
-**Last updated:** 26 August 2026
+**Last updated:** 27 August 2026
 
 This file owns task assignment and delivery status. Technical truth and verified
 evidence remain in `project-status.md` and `testing-and-demo.md`.
@@ -15,8 +15,8 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 
 | Task | Status | Completion evidence |
 |---|---|---|
-| FDC verifier request, fee lookup, Coston2 submission, voting-round tracking, and DA proof acquisition | In progress | Real `XRPPayment` request `0x6850...c99f` and round `1437032` completed manually; submission command exists. Automated proof retrieval and contract submission remain. |
-| Real paid-path verification | In progress | Address-hash compatibility is proven. A fresh agreement, post-creation XRPL payment, new FDC proof, and `PaidVerified` contract result remain. |
+| FDC verifier request, fee lookup, Coston2 submission, voting-round tracking, and DA proof acquisition | Done | `fdc:prepare`, `fdc:submit`, `fdc:proof`, and `fdc:record` cover the chain end to end and hand each step's output to the next through `evidence/`. `fdc:prepare` reproduces the historic request bytes exactly, and `fdc:proof` was run against real round `1437032` where the live `FdcVerification` at `0x9065...B933` returned true for the retrieved proof. |
+| Real paid-path verification | In progress | Address-hash compatibility is proven and a real DA proof now passes the enshrined verifier. A fresh agreement, post-creation XRPL payment, new FDC proof, and `PaidVerified` contract result remain. `fdc:record` is written but has never been run against a live agreement. |
 | Real overdue-path verification | Not started | Requires a separate short-lived agreement and `XRPPaymentNonexistence` proof. |
 | Live/recorded demo using real identifiers | Not started | Build only after the paid or overdue proof is accepted by `LatePayShield`. |
 
@@ -30,11 +30,14 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 
 ## Immediate order
 
-1. Automate DA proof retrieval and serialization.
-2. Create a fresh agreement before its matching XRPL payment.
-3. Submit the new proof to `recordVerifiedPayment` and retain the public transaction.
-4. Implement the separate non-payment proof path.
-5. Start the evidence-focused frontend against the real proof shape and deployed address.
+1. Create a fresh agreement before its matching XRPL payment.
+2. Run `fdc:prepare` → `fdc:submit` → `fdc:proof` → `fdc:record` against it and retain the public transaction.
+3. Implement the separate non-payment proof path.
+4. Start the evidence-focused frontend against the real proof shape and deployed address.
+
+`fdc:prepare` and `fdc:proof` are proven end to end and need no private credential.
+Everything from `fdc:submit` onward needs a funded throwaway `COSTON2_PRIVATE_KEY`,
+which is not in the repository, so submission has not been re-run.
 
 No issue evidence may contain a Coston2 private key, XRPL seed, recovery phrase,
 verifier key other than the published public test key, or full `.env` content.
