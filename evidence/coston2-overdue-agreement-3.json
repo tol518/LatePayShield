@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-08-28T09:10:14.153Z",
+  "network": "flare-testnet-coston2",
+  "chainId": 114,
+  "contractAddress": "0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1",
+  "agreementId": 3,
+  "status": "OverdueVerified",
+  "evidenceId": "0x688182e0b72b43c7ebd537be99e61a3329d4ef22606129bdef4c70f50d0c14c1",
+  "votingRoundId": 1438645,
+  "searchedFromLedger": "20284260",
+  "firstOverflowBlockNumber": "20284354",
+  "firstOverflowBlockTimestamp": "1787908000",
+  "dropsThreshold": "1999999",
+  "submissionTransaction": "0xab0df5b0676a25bbc2bfdfb4061fa3034a040a3b4c4d2b3ac2f6e9b3885f068e",
+  "blockNumber": 34586348,
+  "proofEvidenceFile": "fdc-nonpayment-proof-1438645-57236EB7DAC31746.json",
+  "explorer": "https://coston2-explorer.flare.network/tx/0xab0df5b0676a25bbc2bfdfb4061fa3034a040a3b4c4d2b3ac2f6e9b3885f068e"
+}
