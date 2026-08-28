@@ -15,8 +15,8 @@ LatePay Shield turns confirmed invoice terms into a testnet payment agreement. X
 | XRPL Testnet payment | Validated transaction `4174F0EC...249309`, ledger `20202706`, `tesSUCCESS`. |
 | CI | Latest `main` workflow passed on 25 August 2026. |
 | Coston2 deployment | Deployed at `0x4A49...78B1`; public readback passed. |
-| Real FDC payment/non-payment proof | Real payment proof acquired for hash compatibility; submission to an agreement and non-payment proof remain. |
-| Frontend | Not started. |
+| Real FDC payment/non-payment proof | Both outcome branches have been accepted by the deployed Coston2 contract. |
+| Frontend | Local React/Vite testnet UI implements agreement registration, Xaman payment, XRPL matching, and FDC-job progress. |
 
 See [`docs/project-status.md`](docs/project-status.md) for the complete verified, unverified, and blocked boundary.
 
@@ -45,6 +45,23 @@ npx hardhat test test/VerifierOverrideGuard.test.js
 
 Never create `.env` from real-money wallets. If a network spike needs local values, copy `.env.example` and use throwaway faucet-funded testnet accounts only.
 
+### Local testnet UI
+
+The browser application is a separate package so it does not share the Hardhat
+dependency tree. It reads public chain state, asks MetaMask/Xaman to sign in
+their respective wallets, and uses a loopback-only local service for server-side
+Xaman requests and optional FDC job orchestration.
+
+```bash
+npm --prefix web install
+npm --prefix web run dev
+```
+
+See [`web/README.md`](web/README.md) for the testnet-only Xaman and opt-in FDC
+configuration. The FDC job service uses the existing root scripts and local
+throwaway Coston2 configuration; it is not a production backend or durable job
+queue.
+
 ## Commands
 
 | Command | Purpose |
@@ -65,6 +82,7 @@ Never create `.env` from real-money wallets. If a network spike needs local valu
 | [`docs/project-context.md`](docs/project-context.md) | Product scope, MVP, claims, and event constraints. |
 | [`docs/architecture.md`](docs/architecture.md) | Implemented components, networks, dependencies, and target data flow. |
 | [`docs/design.md`](docs/design.md) | User journey, product states, evidence UX, and visual direction. |
+| [`docs/ui-language.md`](docs/ui-language.md) | Detailed UI language, visual roles, components, layout, and accessibility conventions. |
 | [`docs/data-and-contracts.md`](docs/data-and-contracts.md) | Exact canonicalization, contract behavior, transitions, and matching semantics. |
 | [`docs/testing-and-demo.md`](docs/testing-and-demo.md) | Test matrix, CI, evidence ledger, demo, and fallback procedure. |
 | [`docs/tooling-runbook.md`](docs/tooling-runbook.md) | Exact testnet tools, URLs, inputs, outputs, and secret-handling rules for XRPL, FDC, and Coston2. |
