@@ -1,7 +1,7 @@
 # Testing, Verification, CI, and Demo
 
-**Last verified locally:** 27 August 2026 on Windows with Node `24.19.0`
-**Remote baseline:** `main` commit `dc4640b`
+**Last verified locally:** 28 August 2026 on Windows with Node `24.19.0`
+**Remote baseline:** `main` commit `2efb083`
 
 ## Verification levels
 
@@ -79,7 +79,8 @@ The `main` workflow for merge commit `e459042` completed successfully on 25 Augu
 | Override guard | Local tests at 31337 and 114 | `test/VerifierOverrideGuard.test.js` | Non-zero live-network override rejected. |
 | XRPL payment | Live Testnet transaction | `4174F0EC6537F2E71DAEFD7E0412CB885BCF44F63A5D9E233042251B15249309` | Rechecked live: validated, ledger `20202706`, `tesSUCCESS`, 2,000,000 drops, destination tag `2026001`, memo `INV-2026-001`. |
 | Coston2 deployment | Live testnet deployment | `0xfec3a90684482dd2cbc04c5a2e25a948968570b64fd1c7e610f13dfdcb487ae3` | Contract `0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1`; chain `114`; zero verifier override; public RPC readback passed. |
-| FDC payment proof | Real DA proof accepted by the live verifier | XRPL transaction `A0DA3E67...ADF3565`; Coston2 request `68503B0C...6BC99F`; voting round `1437032` | `npm run fdc:proof` retrieved it, re-encoding is byte-exact, and `FdcVerification` at `0x9065...B933` returned true. Submission to `LatePayShield` remains pending. |
+| FDC payment proof | Real proof accepted by the contract | XRPL transaction `2A06F207...91CD36`; Coston2 request `0x3070...22d9`; voting round `1438624`; submission `0xc675...423e` | Agreement `2` reads back as `PaidVerified` with evidence ID `0xdaa9...18f8`. |
+| Agreement lifecycle | Live Coston2 agreement | Creation `0xf25f...43df`, agreement `2`, start ledger `20283755`, deadline `1787913245` | Created before its payment, so the evidence window is honest rather than back-fitted. |
 | FDC non-payment proof | Planned | None | Not implemented. |
 | FTSO | Optional/planned | None | Not implemented. |
 | Frontend | Planned | None | Not implemented. |
@@ -142,7 +143,7 @@ npm run deploy:check:coston2
 The recorded deployment is contract `0x4A49...78B1`, transaction `0xfec3...7ae3`,
 chain ID `114`, with zero verifier override.
 
-### 3. Verify the real paid path — pending
+### 3. Verify the real paid path — completed
 
 The old `A0DA...` payment proves FDC compatibility but predates any agreement on the
 new deployment. It must not be submitted as proof of a newly created agreement.
@@ -160,22 +161,26 @@ Required order:
    AGREEMENT_ID=<id> npm run fdc:record
    ```
 
-Step 2 has no command yet: nothing in the repository creates an agreement on the
-deployed contract, so the paid path cannot be started. `fdc:record` is written but
-has never run against a live agreement, so it is not a completed verification claim.
+Run on 28 August 2026 as agreement `2`. The payment closed at
+`2026-08-28T08:36:42Z`, comfortably inside the `10:34:05Z` deadline, and in ledger
+`20283804` against an evidence floor of `20283755`. Every check the contract makes
+was satisfied by real data, not by a fixture.
+
+Ordering is the part that matters. Set `XRPL_SUPPLIER_ADDRESS` before step 2, or
+`spike:xrpl` funds a fresh supplier the agreement knows nothing about and the proof
+fails on `DestinationMismatch`.
 
 ## Required next integration tests
 
-1. Add an agreement-creation command, then submit a real `XRPPayment` proof to a deployed Coston2 agreement and retain contract/proof identifiers.
-2. Define a safe ledger range and obtain `XRPPaymentNonexistence` evidence.
-3. Confirm the `expectedDrops - 1` threshold using the real verifier response.
-4. Exercise network pending, timeout, rejection, and retry behavior through the future application.
+1. Define a safe ledger range and obtain `XRPPaymentNonexistence` evidence.
+2. Confirm the `expectedDrops - 1` threshold using the real verifier response.
+3. Exercise network pending, timeout, rejection, and retry behavior through the future application.
 
 ## Three-minute demo
 
 1. **Problem:** supplier burden and the need for a shared payment outcome.
 2. **Confirm:** controlled invoice, human-confirmed terms, real agreement ID/hash.
-3. **Paid branch:** real XRPL transaction and, once available, real FDC proof accepted on Coston2.
+3. **Paid branch:** agreement `2`, its XRPL transaction `2A06F207...91CD36`, and the FDC proof accepted on Coston2 in `0xc675...423e`.
 4. **Overdue branch:** precisely bounded non-payment evidence; otherwise remain visibly pending.
 5. **Close:** XRPL provides the payment record, Flare verifies/records the agreement outcome, and future AI removes administration without determining financial truth.
 

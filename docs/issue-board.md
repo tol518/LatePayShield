@@ -1,6 +1,6 @@
 # Issue Board
 
-**Last updated:** 27 August 2026
+**Last updated:** 28 August 2026
 
 This file owns task assignment and delivery status. Technical truth and verified
 evidence remain in `project-status.md` and `testing-and-demo.md`.
@@ -16,9 +16,9 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 | Task | Status | Completion evidence |
 |---|---|---|
 | FDC verifier request, fee lookup, Coston2 submission, voting-round tracking, and DA proof acquisition | Done | `fdc:prepare`, `fdc:submit`, `fdc:proof`, and `fdc:record` cover the chain end to end and hand each step's output to the next through `evidence/`. `fdc:prepare` reproduces the historic request bytes exactly, and `fdc:proof` was run against real round `1437032` where the live `FdcVerification` at `0x9065...B933` returned true for the retrieved proof. |
-| Real paid-path verification | In progress | Address-hash compatibility is proven and a real DA proof now passes the enshrined verifier. A fresh agreement, post-creation XRPL payment, new FDC proof, and `PaidVerified` contract result remain. `fdc:record` is written but has never been run against a live agreement. |
+| Real paid-path verification | Done | Agreement `2` created in `0xf25f...43df`, XRPL payment `2A06F207...91CD36` sent afterwards in ledger `20283804`, FDC request answered in round `1438624`, and `recordVerifiedPayment` accepted the proof in `0xc675...423e`. Public readback shows `PaidVerified` with evidence ID `0xdaa9...18f8`. |
 | Real overdue-path verification | Not started | Requires a separate short-lived agreement and `XRPPaymentNonexistence` proof. |
-| Live/recorded demo using real identifiers | Not started | Build only after the paid or overdue proof is accepted by `LatePayShield`. |
+| Live/recorded demo using real identifiers | Not started | Unblocked. Agreement `2` is a complete real paid lifecycle to build the demo around. |
 
 ## Tolga — application and AI
 
@@ -30,14 +30,15 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 
 ## Immediate order
 
-1. Run `npm run create:agreement` with `XRPL_SUPPLIER_ADDRESS` set to `rUCR23Ys3TWFMqdNDzFehUjyxj8ZfUYo9V`.
-2. Run `npm run spike:xrpl` so the payment lands after the agreement, then `fdc:prepare` → `fdc:submit` → `fdc:proof` → `fdc:record`, and retain the public transaction.
-3. Implement the separate non-payment proof path.
-4. Start the evidence-focused frontend against the real proof shape and deployed address.
+1. Implement the non-payment proof path against a short-lived agreement, using
+   `DUE_IN_MINUTES` to force a deadline that passes during the run.
+2. Start the evidence-focused frontend against agreement `2`, which is real
+   end-to-end evidence rather than a fixture.
+3. Prepare the demo around agreement `2`.
 
-`fdc:prepare` and `fdc:proof` are proven end to end and need no private credential.
-The Coston2 signer is funded and every command's inputs are validated, so nothing is
-blocked. The remaining steps all send real transactions and have not been run.
+The paid chain runs unattended from `create:agreement` through `fdc:record`. Set
+`XRPL_SUPPLIER_ADDRESS` before starting, or `spike:xrpl` will fund a supplier the
+agreement knows nothing about.
 
 No issue evidence may contain a Coston2 private key, XRPL seed, recovery phrase,
 verifier key other than the published public test key, or full `.env` content.
