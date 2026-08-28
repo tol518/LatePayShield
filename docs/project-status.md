@@ -1,7 +1,7 @@
 # Project Status
 
 **Last updated:** 28 August 2026
-**Phase:** Both outcome branches proven end to end on testnet
+**Phase:** Both outcome branches proven end to end on testnet; local AI extraction wired into the UI
 **Current base:** Remote `main` commit `2efb083`
 
 This file records current truth. Target behavior belongs in the other documents.
@@ -37,10 +37,13 @@ The exact external tools and URLs used to create this evidence are recorded in
 
 - The creator-supplied `startLedger` cannot be corroborated on-chain. For agreement `2` it was read from the live XRPL ledger immediately before creation, but the contract cannot check that.
 - `web/` implements a local React/Vite testnet interface with MetaMask agreement creation, live registry reads, Xaman/manual payment paths, public XRPL matching, and opt-in FDC job orchestration. Its build and focused tests pass, but this specific browser-to-FDC job path has not yet been independently demonstrated as one uninterrupted GUI run. The job service is loopback-only and in-memory, not durable persistence.
+- Skill S1 of `docs/ai/SKILLS.md` (invoice term extraction) is implemented in `web/server/ai/` behind `AI_ASSISTANT_ENABLED`, with a UI panel that fills the agreement form with quoted, editable suggestions. Against `mlx-community/Qwen3-8B-4bit` on an operator-hosted MLX endpoint, a clean invoice returned a schema-valid extraction and an injection fixture returned `refusal`/`unsafe_request`; the web package's 14 test executions pass, 11 of them covering this validator. This was a two-document manual run at roughly 40 to 55 seconds per request, not a fixture suite, and no browser run has been demonstrated end to end. S2 to S5 are not implemented.
 
 ## Not implemented
 
-- AI extraction/confirmation flow.
+- AI skills S2 to S5 (reminder drafting, status explanation, UK-law information, interest illustration).
+- `npm run law:refresh` and `data/uk-law/snapshot.json`, without which S4 and S5 must stay disabled.
+- A committed AI fixture suite covering the acceptance checks in `docs/ai/SKILLS.md` §9.
 - FTSO conversion.
 - Durable/multi-user application persistence, authentication, and job recovery.
 - Prepared live/recorded demo flow using the UI and real Coston2/FDC identifiers.
@@ -55,9 +58,10 @@ The exact external tools and URLs used to create this evidence are recorded in
 ## Next priorities
 
 1. Demonstrate one fresh paid agreement through the browser UI to `PaidVerified`, while retaining the public evidence package.
-2. Prepare the demo around agreements `2`, `3`, and `4`, which provide real evidence for both outcome branches and the current payment UI path.
-3. Make the npm verification script cross-platform before relying on it as a universal local command.
-4. Add durable, authenticated job handling before treating the local application service as anything beyond a prototype.
+2. Commit an AI fixture suite so `docs/ai/SKILLS.md` §9 checks 1, 3, and 9 are regression-tested rather than manually observed.
+3. Prepare the demo around agreements `2`, `3`, and `4`, which provide real evidence for both outcome branches and the current payment UI path.
+4. Make the npm verification script cross-platform before relying on it as a universal local command.
+5. Add durable, authenticated job handling before treating the local application service as anything beyond a prototype.
 
 ## Decision checkpoint
 

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import dotenv from 'dotenv';
 import xummSdkPackage from 'xumm-sdk';
+import { readAiConfig } from './ai/config.js';
+import { runExtraction, MAX_INVOICE_CHARACTERS } from './ai/extract.js';
 
 const { XummSdk } = xummSdkPackage;
 // This package is intentionally frontend-adjacent, but credentials belong to
@@ -18,6 +20,9 @@ const XRPL_TESTNET_RPC_URL = process.env.XRPL_TESTNET_RPC_URL ?? 'https://s.altn
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CLASSIC_ADDRESS = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 const MAX_BODY_BYTES = 16 * 1024;
+// A pasted invoice is legitimately larger than any other request this service
+// takes, so the AI route gets its own ceiling instead of raising it everywhere.
+const MAX_AI_BODY_BYTES = 64 * 1024;
 const SESSION_LIFETIME_MS = 15 * 60 * 1000;
 const DIST_DIR = fileURLToPath(new URL('../dist', import.meta.url));
 const PROJECT_DIR = fileURLToPath(new URL('../../', import.meta.url));
@@ -33,20 +38,31 @@ const configured = UUID.test(apiKey ?? '') && UUID.test(apiSecret ?? '');
 const sdk = configured ? new XummSdk(apiKey, apiSecret) : null;
 const sessions = new Map();
 const createAttempts = new Map();
+const aiAttempts = new Map();
 const fdcJobs = new Map();
 const fdcQueue = [];
 let activeFdcJob = null;
 
-function allowPaymentRequest(address) {
+function allowRequest(attempts, address, limit) {
   const now = Date.now();
-  const current = createAttempts.get(address);
+  const current = attempts.get(address);
   if (!current || current.resetAt <= now) {
-    createAttempts.set(address, { count: 1, resetAt: now + 60_000 });
+    attempts.set(address, { count: 1, resetAt: now + 60_000 });
     return true;
   }
-  if (current.count >= 12) return false;
+  if (current.count >= limit) return false;
   current.count += 1;
   return true;
+}
+
+function allowPaymentRequest(address) {
+  return allowRequest(createAttempts, address, 12);
+}
+
+// The model answers one request at a time on the operator's own hardware, so a
+// tighter ceiling here protects the machine rather than the service.
+function allowAiRequest(address) {
+  return allowRequest(aiAttempts, address, 6);
 }
 
 function sendJson(response, status, body) {
@@ -185,11 +201,24 @@ function fdcJobStatus(response, id) {
   sendJson(response, 200, publicFdcJob(job));
 }
 
-async function readJson(request) {
+async function aiExtract(request, response) {
+  const config = readAiConfig();
+  if (!config.ready) {
+    // Not an error: the assistant is optional and the manual form is complete.
+    sendJson(response, 503, { error: config.unavailableReason });
+    return;
+  }
+
+  const body = await readJson(request, MAX_AI_BODY_BYTES);
+  const result = await runExtraction(body.invoiceText);
+  sendJson(response, 200, result);
+}
+
+async function readJson(request, limit = MAX_BODY_BYTES) {
   let body = '';
   for await (const chunk of request) {
     body += chunk;
-    if (Buffer.byteLength(body) > MAX_BODY_BYTES) throw new Error('Request body is too large.');
+    if (Buffer.byteLength(body) > limit) throw new Error('Request body is too large.');
   }
   try {
     return JSON.parse(body || '{}');
@@ -357,11 +386,18 @@ const server = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url, `http://${request.headers.host ?? `${HOST}:${PORT}`}`);
     if (request.method === 'GET' && url.pathname === '/api/xaman/health') {
+      const aiConfig = readAiConfig();
       sendJson(response, 200, {
         configured,
         network: 'XRPL Testnet',
         fdcAutomationEnabled: FDC_AUTOMATION_ENABLED,
         fdcAutomationReady: FDC_AUTOMATION_READY,
+        // The model's address is never included: the browser only learns
+        // whether suggestions can be attempted.
+        aiEnabled: aiConfig.enabled,
+        aiReady: aiConfig.ready,
+        aiUnavailableReason: aiConfig.unavailableReason,
+        aiMaxInvoiceCharacters: MAX_INVOICE_CHARACTERS,
       });
       return;
     }
@@ -376,6 +412,14 @@ const server = http.createServer(async (request, response) => {
     const xrplMatch = request.method === 'GET' && url.pathname.match(/^\/api\/xrpl\/transactions\/([A-Fa-f0-9]{64})$/);
     if (xrplMatch) {
       await xrplTransaction(response, xrplMatch[1]);
+      return;
+    }
+    if (request.method === 'POST' && url.pathname === '/api/ai/extractions') {
+      if (!allowAiRequest(request.socket.remoteAddress ?? 'unknown')) {
+        sendJson(response, 429, { error: 'Too many suggestion requests. Wait one minute, or enter the terms manually.' });
+        return;
+      }
+      await aiExtract(request, response);
       return;
     }
     if (request.method === 'POST' && url.pathname === '/api/fdc/payments') {
@@ -398,7 +442,15 @@ const server = http.createServer(async (request, response) => {
     }
     await serveFrontend(response, url.pathname);
   } catch (error) {
-    console.error('Xaman service request failed:', error?.message ?? error);
+    console.error('Web service request failed:', error?.message ?? error);
+    if (error?.name === 'AiUnavailableError') {
+      sendJson(response, 503, { error: error.message });
+      return;
+    }
+    if (error?.name === 'AiInputError') {
+      sendJson(response, 400, { error: error.message });
+      return;
+    }
     sendJson(response, error?.message?.includes('required') || error?.message?.includes('must') ? 400 : 502, {
       error: error?.message ?? 'Xaman payment service failed.',
     });
@@ -408,6 +460,10 @@ const server = http.createServer(async (request, response) => {
 server.listen(PORT, HOST, () => {
   console.log(`LatePay Xaman service: http://${HOST}:${PORT}`);
   console.log(configured ? 'Xaman credentials loaded; Testnet payment requests are enabled.' : 'Xaman credentials missing; add them to the repository-root .env to enable wallet payments.');
+  const aiConfig = readAiConfig();
+  console.log(aiConfig.ready
+    ? `Local AI assistant enabled; invoice suggestions use ${aiConfig.model}.`
+    : `Local AI assistant off; ${aiConfig.unavailableReason}`);
   console.log(FDC_AUTOMATION_READY
     ? 'FDC UI automation enabled; jobs run one at a time.'
     : FDC_AUTOMATION_ENABLED

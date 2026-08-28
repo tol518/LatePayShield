@@ -9,7 +9,7 @@ From this directory:
 
 ```bash
 npm install
-npm run dev      # UI http://localhost:5173 + Xaman service http://localhost:8787
+npm run dev      # UI http://localhost:5173 + local service http://localhost:8787
 ```
 
 Or from the repository root, without changing directory:
@@ -104,6 +104,53 @@ never a private key, seed, or verifier setting. Keep the web service running
 until the job completes; its job status is intentionally in memory for this
 local testnet prototype.
 
+## Enable the local AI assistant
+
+Optional, and off by default. Skill S1 of [`../docs/ai/SKILLS.md`](../docs/ai/SKILLS.md)
+reads pasted invoice text and proposes the descriptive terms it can quote from
+the document. The agreement form is complete without it: keep it switched off
+and nothing in the journey changes.
+
+Run any OpenAI-compatible server on the machine hosting the model — MLX
+(`mlx_lm.server`), Ollama, llama.cpp, or LM Studio all expose the required
+`/v1/chat/completions` route — then add its address to the repository-root
+`.env`:
+
+```dotenv
+AI_ASSISTANT_ENABLED=true
+LOCAL_LLM_BASE_URL=http://127.0.0.1:8080/v1
+LOCAL_LLM_MODEL=mlx-community/Qwen3-8B-4bit
+LOCAL_LLM_TIMEOUT_MS=90000
+```
+
+If the model runs on a different machine on your own private network, put that
+machine's address in `LOCAL_LLM_BASE_URL`. Only `server/` ever contacts it, so
+the address stays out of the browser bundle and the model needs no CORS
+configuration, no public exposure, and no TLS certificate.
+
+Restart `npm run dev`. What the service guarantees, from
+[`../docs/ai/SKILLS.md`](../docs/ai/SKILLS.md):
+
+- **Every reply is schema-validated before the browser sees it.** Reasoning is
+  stripped, JSON is parsed, and a response that populates the XRPL destination,
+  destination tag, XRP amount, or start ledger is rejected whole. One retry
+  carries the validation error back to the model; a second failure means manual
+  entry.
+- **Every suggestion is quoted.** A value the model cannot support with a
+  verbatim span of the pasted document is dropped, with a warning naming it.
+- **Nothing is confirmed.** Suggestions land in the same editable fields you
+  would type into, and the agreement is registered only from what you confirm.
+- **No currency conversion.** The invoice total is shown for reference; the XRP
+  amount is always yours to enter.
+- **Pasted text is quoted material, not instruction.** A document that tries to
+  direct the model produces a refusal.
+- **Nothing is retained.** The text lives for the duration of the request. The
+  service log records model name, finish reason, token counts, and latency —
+  never the document.
+
+A local 8B model with thinking enabled took roughly 40 to 55 seconds per request
+in testing. The button says so, and the rest of the page stays usable.
+
 ## Layout
 
 | Path | Holds |
@@ -116,6 +163,9 @@ local testnet prototype.
 | `src/lib/xrplPayment.js` | Public XRPL Testnet transaction lookup and agreement-criteria checks. |
 | `src/lib/xamanPayment.js` | Browser client for the same-origin Xaman payment API. |
 | `src/lib/fdcPayment.js` | Browser client for the local, opt-in FDC job API. |
+| `src/lib/aiAssistant.js` | Browser client for the local AI API, and suggestion-to-form mapping. |
+| `src/components/AiInvoiceExtraction.jsx` | Optional paste-an-invoice panel and suggestion review. |
+| `server/ai/` | Model client, S1 prompt, and the schema validator that gates every reply. |
 | `server/index.js` | Isolated Xaman service and testnet-only FDC job runner. |
 | `src/lib/exampleAgreement.js` | Placeholder values for the layout illustration. |
 | `src/styles/tokens.css` | Colour roles, spacing scale, type, radii. Change design values here. |
@@ -143,3 +193,7 @@ break by accident:
   pending state until a read of the Coston2 contract returns `PaidVerified`.
 - **FDC runs server-side.** The UI may start and observe the existing testnet
   command chain, but it cannot access the Coston2 key or FDC configuration.
+- **The AI proposes; a human confirms.** No component fetches the model
+  directly, and no model output reaches the UI without passing
+  `server/ai/extractionSchema.js`. New skills add a route and a validator there,
+  never a fetch from a component.

@@ -2,8 +2,9 @@
 
 **Current status:** Both FDC outcome branches have been accepted by fresh Coston2
 agreements. A local React/Vite testnet application implements agreement creation,
-XRPL payment guidance/Xaman payment requests, public XRPL matching, and opt-in FDC
-job progress. It is not a durable or production application service.
+XRPL payment guidance/Xaman payment requests, public XRPL matching, opt-in FDC
+job progress, and an opt-in local AI invoice-extraction skill. It is not a
+durable or production application service.
 
 ## Implemented repository map
 
@@ -27,13 +28,15 @@ evidence/
   dependabot.yml                    Dependency update policy
 web/
   src/                              React/Vite payment and evidence UI
-  server/index.js                   Loopback-only Xaman and opt-in FDC job service
+  server/index.js                   Loopback-only Xaman, FDC job, and AI service
+  server/ai/                        Local model client, S1 prompt, and schema validator
   vite.config.js                    Shared canonical-module alias and dev proxy
 ```
 
-There is no database, durable job queue, authenticated multi-user backend, or AI
-integration yet. The web service keeps Xaman sessions and FDC job progress in
-memory and binds to `127.0.0.1` by default.
+There is no database, durable job queue, or authenticated multi-user backend.
+The web service keeps Xaman sessions and FDC job progress in memory and binds to
+`127.0.0.1` by default. Only skill S1 of [`docs/ai/SKILLS.md`](ai/SKILLS.md) is
+implemented; S2 to S5 are not.
 
 ## Runtime and dependencies
 
@@ -48,6 +51,7 @@ memory and binds to `127.0.0.1` by default.
 | Configuration | `dotenv`; ignored local `.env` derived from `.env.example` |
 | Web UI | React `19`, Vite `7`, and a CommonJS alias to `lib/canonical.js` |
 | Xaman integration | Server-only `xumm-sdk`; credentials stay in the root ignored `.env` |
+| Local AI runtime | Operator-hosted OpenAI-compatible endpoint; no new dependency, `fetch` only |
 
 The earlier Next.js/TypeScript/Tailwind suggestion is not an implemented decision.
 
@@ -58,6 +62,7 @@ The earlier Next.js/TypeScript/Tailwind suggestion is not an implemented decisio
 | Flare Coston2 | RPC `https://coston2-api.flare.network/ext/C/rpc`, chain ID `114` |
 | XRPL Testnet | WebSocket `wss://s.altnet.rippletest.net:51233` |
 | FDC verifier | `https://fdc-verifiers-testnet.flare.network`; requires `X-API-KEY`, published public test value |
+| Local AI model | Operator-configured `LOCAL_LLM_BASE_URL`, off unless `AI_ASSISTANT_ENABLED=true`; reached only by `web/server`, never by the browser |
 | FDC DA layer | `https://ctn2-data-availability.flare.network` via the existing proof script |
 
 Mainnet is deliberately absent from `hardhat.config.js`. The XRPL spike refuses endpoints that do not visibly identify as altnet/testnet.
@@ -114,6 +119,26 @@ The constructor accepts a verifier override only at chain ID `31337`. A non-zero
 
 `scripts/xrpl-spike.js` creates throwaway faucet-funded wallets, submits a Testnet payment, and stores public identifiers without seeds. It proves payment creation/retrieval, not FDC compatibility.
 
+### Local AI layer
+
+`web/server/ai/` holds the only code that addresses the model. The browser calls
+same-origin `POST /api/ai/extractions`; the service calls the operator's
+OpenAI-compatible endpoint. The model's address therefore never reaches a client
+bundle, and CORS, mixed content, and private-network reachability stop being
+frontend concerns.
+
+Every reply is stripped of reasoning, parsed as JSON, and validated against the
+S1 schema in `extractionSchema.js` before it leaves the service. The validator
+rejects a response outright when it populates `xrplDestination`,
+`destinationTag`, `amountDrops`, or `startLedger`, or claims no human
+confirmation is needed; it nulls an individual field whose `sourceQuote` is not a
+verbatim span of the submitted document. One retry carries the validation error
+back to the model, after which the request fails and the form is filled manually.
+
+`GET /api/xaman/health` reports `aiEnabled`/`aiReady` so the UI can omit the
+feature rather than present it as broken. Request and reply bodies are never
+logged; only model name, finish reason, token counts, and latency are.
+
 ### Application layer
 
 `web/` handles human confirmation, MetaMask agreement creation, public Coston2
@@ -125,7 +150,7 @@ fresh Coston2 read returns `PaidVerified`.
 
 ## Trust boundaries
 
-- Invoice input and future AI output are untrusted until human confirmation.
+- Invoice input and AI output are untrusted until human confirmation. Pasted document text is quoted material, never instruction: it is wrapped in delimiters and the model is required to refuse an instruction-bearing document.
 - Browser/database state is not payment proof.
 - `standardAddressHash()` uses `keccak256(UTF8(trimmedAddress))`, verified against a real FDC `XRPPayment` response.
 - `startLedger` is supplied by the agreement creator and cannot be checked on-chain.
@@ -137,7 +162,7 @@ fresh Coston2 read returns `PaidVerified`.
 
 | Failure | Required behavior |
 |---|---|
-| AI unavailable/invalid | Fall back to manual entry. |
+| AI unavailable/invalid | Fall back to manual entry. Implemented: a stopped model, a timeout, a truncated reply, or a second schema failure surfaces as an error beside a fully usable form. |
 | Wallet rejects transaction | Retain draft; never show success. |
 | XRPL RPC unavailable | Retain identifiers; show retryable network failure. |
 | Proof request pending | Remain pending and show request metadata. |

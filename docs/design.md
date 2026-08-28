@@ -2,8 +2,8 @@
 
 **Current status:** The local testnet UI implements preparation, MetaMask
 registration, live agreement reads, Xaman/manual payment submission, XRPL
-matching, and FDC job progress. AI extraction, durable persistence, and a
-production service are not implemented.
+matching, FDC job progress, and optional local AI invoice extraction. Durable
+persistence and a production service are not implemented.
 
 The detailed visual and component guidance lives in [`ui-language.md`](ui-language.md).
 
@@ -20,8 +20,8 @@ The interface should feel like dependable payment administration, not a trading 
 
 ## Primary journey
 
-1. **Prepare:** Upload a controlled sample invoice or enter terms manually.
-2. **Review:** Display future AI-extracted values as editable suggestions.
+1. **Prepare:** Paste invoice text for the optional local assistant, or enter terms manually. The assistant is absent from the page when it is switched off, and no journey step depends on it.
+2. **Review:** Display AI-extracted values as editable suggestions, each shown with the verbatim quote from the document that supports it and the model's own confidence. Suggestions are labelled proposed and unconfirmed, and never include the XRPL destination, destination tag, XRP amount, or evidence-window start ledger. The invoice total and currency are reference-only: no currency is converted.
 3. **Confirm:** Require explicit confirmation of amount, deadline, XRPL destination, destination tag, and evidence-window start.
 4. **Register:** Show the Coston2 agreement ID and canonical terms hash.
 5. **Pay:** Present exact XRPL Testnet instructions; memo/reference is useful evidence but is not currently contract-verified.

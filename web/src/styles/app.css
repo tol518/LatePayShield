@@ -512,6 +512,123 @@
   font-size: 14px;
 }
 
+/* ---- Optional local assistant ----------------------------------------- */
+.assistant-form {
+  display: grid;
+  gap: var(--s1);
+}
+
+.assistant-form > label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.assistant-form textarea {
+  width: 100%;
+  padding: 12px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  font: inherit;
+  resize: vertical;
+}
+
+.assistant-form textarea:disabled {
+  color: var(--muted);
+  background: var(--surface-quiet);
+}
+
+.assistant-form .form-actions {
+  margin-top: var(--s1);
+}
+
+.assistant-result {
+  position: sticky;
+  top: 88px;
+}
+
+.assistant-result h3 {
+  margin-top: var(--s2);
+  font-size: 18px;
+}
+
+.assistant-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: var(--s2);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.assistant-note svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex: none;
+}
+
+/* An attention note is a caveat about a suggestion, never a failure: it keeps
+   the muted body colour and marks only the icon. */
+.assistant-note--attention {
+  color: var(--attention);
+}
+
+.suggestion-list {
+  display: grid;
+  gap: var(--s1);
+  margin: var(--s3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestion {
+  padding: 10px 12px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.suggestion__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s1);
+}
+
+.suggestion__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.suggestion__confidence {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.suggestion__confidence--low {
+  color: var(--attention);
+}
+
+.suggestion__value {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.suggestion__quote {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 /* ---- Guided XRPL payment and FDC status ------------------------------- */
 .payment-journey {
   display: grid;
@@ -1026,7 +1143,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .commitment {
+  .commitment,
+  .assistant-result {
     position: static;
   }
 }
