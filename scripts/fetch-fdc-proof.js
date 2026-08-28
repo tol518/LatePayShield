@@ -2,6 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const { network, ethers } = require("hardhat");
 const {
+  EVIDENCE_DIR,
+  latestEvidence,
   decodeProof,
   encodeResponse,
   verifierAbi,
@@ -12,23 +14,30 @@ const {
 const DA_BASE_URL =
   process.env.FDC_DA_LAYER_BASE_URL || "https://ctn2-data-availability.flare.network";
 
-const EVIDENCE_DIR = path.join(__dirname, "..", "evidence");
 const POLL_INTERVAL_MS = 20_000;
 const POLL_TIMEOUT_MS = 15 * 60_000;
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/**
+ * The request bytes begin with the attestation type, so the proof shape is
+ * derivable from the request itself rather than from a flag someone has to
+ * remember to pass.
+ */
+const ATTESTATIONS = {
+  XRPPayment: {
+    record: "recordVerifiedPayment",
+    verify: "verifyXRPPayment",
+    prefix: "fdc-proof",
+    discriminator: (r) => r.requestBody.transactionId.slice(2).toUpperCase(),
+  },
+  XRPPaymentNonexistence: {
+    record: "recordVerifiedNonPayment",
+    verify: "verifyXRPPaymentNonexistence",
+    prefix: "fdc-nonpayment-proof",
+    discriminator: (r) => r.requestBody.destinationAddressHash.slice(2, 18).toUpperCase(),
+  },
+};
 
-/** Pick up whatever `npm run fdc:submit` last recorded so the round is not retyped. */
-function latestSubmittedRequest() {
-  if (!fs.existsSync(EVIDENCE_DIR)) return null;
-  const files = fs
-    .readdirSync(EVIDENCE_DIR)
-    .filter((f) => f.startsWith("fdc-request-") && f.endsWith(".json"))
-    .map((f) => path.join(EVIDENCE_DIR, f))
-    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
-  if (!files.length) return null;
-  return { file: files[0], ...JSON.parse(fs.readFileSync(files[0], "utf8")) };
-}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function daPost(route, body) {
   const headers = { "Content-Type": "application/json" };
@@ -65,7 +74,7 @@ async function main() {
     throw new Error("Refusing to fetch Coston2 proofs from another network (chain ID 114).");
   }
 
-  const submitted = latestSubmittedRequest();
+  const submitted = latestEvidence("fdc-request-");
   const requestBytes = process.env.FDC_ABI_ENCODED_REQUEST || submitted?.requestBytes;
   const votingRoundId = Number(process.env.FDC_VOTING_ROUND || submitted?.votingRoundId);
 
@@ -79,7 +88,14 @@ async function main() {
       "No voting round. Run `npm run fdc:submit`, or set FDC_VOTING_ROUND in .env."
     );
   }
+  const typeName = ethers.decodeBytes32String(ethers.dataSlice(requestBytes, 0, 32));
+  const attestation = ATTESTATIONS[typeName];
+  if (!attestation) {
+    throw new Error(`Unsupported attestation type in the request bytes: ${typeName}`);
+  }
+
   if (submitted) console.log(`Request source: ${submitted.file}`);
+  console.log(`Attestation:    ${typeName}`);
   console.log(`Voting round:   ${votingRoundId}`);
 
   const latest = await latestFdcRound();
@@ -114,21 +130,24 @@ async function main() {
     await sleep(POLL_INTERVAL_MS);
   }
 
-  const proof = decodeProof(leaf.response_hex, leaf.proof);
+  const proof = decodeProof(leaf.response_hex, leaf.proof, attestation.record);
 
   // A silent re-encoding difference is the one failure mode that still produces a
   // plausible-looking proof, so it is checked before the network is asked anything.
-  if (encodeResponse(proof.data).toLowerCase() !== leaf.response_hex.toLowerCase()) {
+  if (
+    encodeResponse(proof.data, attestation.record).toLowerCase() !==
+    leaf.response_hex.toLowerCase()
+  ) {
     throw new Error("Re-encoded response does not match the DA bytes; refusing to save.");
   }
 
   const fdcAddress = await fdcVerificationAddress(ethers);
   const verifier = new ethers.Contract(
     fdcAddress,
-    verifierAbi("verifyXRPPayment"),
+    verifierAbi(attestation.verify, attestation.record),
     ethers.provider
   );
-  const verified = await verifier.verifyXRPPayment(proof);
+  const verified = await verifier[attestation.verify](proof);
   if (!verified) {
     throw new Error(
       `FdcVerification at ${fdcAddress} rejected this proof. It cannot be submitted to LatePayShield.`
@@ -136,40 +155,52 @@ async function main() {
   }
 
   const response = jsonSafe(proof.data);
-  const transactionId = response.requestBody.transactionId;
   const evidence = {
     capturedAt: new Date().toISOString(),
     network: "flare-testnet-coston2",
     chainId: 114,
-    attestationType: "XRPPayment",
+    attestationType: typeName,
     votingRoundId,
-    transactionId,
     requestBytes,
     responseHex: leaf.response_hex,
     merkleProof: leaf.proof,
     response,
     fdcVerification: fdcAddress,
-    verifyXRPPayment: verified,
+    [attestation.verify]: verified,
     systemsExplorer: `https://coston2-systems-explorer.flare.network/voting-round/${votingRoundId}?tab=fdc`,
   };
+  if (typeName === "XRPPayment") {
+    evidence.transactionId = response.requestBody.transactionId;
+  }
 
   const outPath = path.join(
     EVIDENCE_DIR,
-    `fdc-proof-${votingRoundId}-${transactionId.slice(2).toUpperCase()}.json`
+    `${attestation.prefix}-${votingRoundId}-${attestation.discriminator(response)}.json`
   );
   fs.writeFileSync(outPath, JSON.stringify(evidence, null, 2) + "\n");
 
   const body = response.responseBody;
-  console.log(`\n✅ verifyXRPPayment returned true (${fdcAddress})`);
-  console.log(`   XRPL transaction:  ${transactionId}`);
-  console.log(`   ledger / status:   ${body.blockNumber} / ${body.status}`);
-  console.log(`   received drops:    ${body.receivedAmount}`);
-  console.log(`   destination tag:   ${body.destinationTag} (present: ${body.hasDestinationTag})`);
-  console.log(`   receiving hash:    ${body.receivingAddressHash}`);
+  const q = response.requestBody;
+  console.log(`\n✅ ${attestation.verify} returned true (${fdcAddress})`);
+  if (typeName === "XRPPayment") {
+    console.log(`   XRPL transaction:  ${q.transactionId}`);
+    console.log(`   ledger / status:   ${body.blockNumber} / ${body.status}`);
+    console.log(`   received drops:    ${body.receivedAmount}`);
+    console.log(`   destination tag:   ${body.destinationTag} (present: ${body.hasDestinationTag})`);
+    console.log(`   receiving hash:    ${body.receivingAddressHash}`);
+  } else {
+    console.log(`   searched ledgers:  ${q.minimalBlockNumber} to ${body.firstOverflowBlockNumber} (exclusive)`);
+    console.log(`   window closed at:  ${body.firstOverflowBlockTimestamp}`);
+    console.log(`   destination hash:  ${q.destinationAddressHash}`);
+    console.log(`   destination tag:   ${q.destinationTag} (checked: ${q.checkDestinationTag})`);
+    console.log(`   above drops:       ${q.amount}`);
+  }
   console.log(`\nSaved: ${outPath}`);
   console.log(
     `\nNext: submit it against a matching agreement with\n` +
-      `  AGREEMENT_ID=<id> npm run fdc:record`
+      `  AGREEMENT_ID=<id> npm run ${
+        typeName === "XRPPayment" ? "fdc:record" : "fdc:record:overdue"
+      }`
   );
 }
 

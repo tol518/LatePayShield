@@ -1,8 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { network, ethers } = require("hardhat");
-
-const EVIDENCE_DIR = path.join(__dirname, "..", "evidence");
+const { EVIDENCE_DIR, latestEvidence } = require("../lib/fdc-proof");
 
 const FDC_HUB = "0x48aC463d7975828989331F4De43341627b9c5f1D";
 const FDC_REQUEST_FEE_CONFIGURATIONS =
@@ -24,24 +23,12 @@ const protocolsV2Abi = [
   "function votingEpochDurationSeconds() external view returns (uint64)",
 ];
 
-/** Whatever `npm run fdc:prepare` last produced, so request bytes are not retyped. */
-function latestPreparedRequest() {
-  if (!fs.existsSync(EVIDENCE_DIR)) return null;
-  const files = fs
-    .readdirSync(EVIDENCE_DIR)
-    .filter((f) => f.startsWith("fdc-request-") && f.endsWith(".json"))
-    .map((f) => path.join(EVIDENCE_DIR, f))
-    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
-  if (!files.length) return null;
-  return { file: files[0], ...JSON.parse(fs.readFileSync(files[0], "utf8")) };
-}
-
 async function main() {
   if (network.config.chainId !== 114) {
     throw new Error("Refusing to submit outside Coston2 (chain ID 114).");
   }
 
-  const prepared = latestPreparedRequest();
+  const prepared = latestEvidence("fdc-request-");
   const request = process.env.FDC_ABI_ENCODED_REQUEST || prepared?.requestBytes;
   if (!request || !ethers.isHexString(request) || request.length < 4) {
     throw new Error(

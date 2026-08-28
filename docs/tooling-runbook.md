@@ -21,6 +21,8 @@ Swagger form, chat, issue, commit, or evidence file.
 | Retrieve the finalized FDC proof/response | Project Hardhat script + Coston2 DA layer | `npm run fdc:proof` | The Merkle proof and ABI-encoded response, saved to `evidence/fdc-proof-<ROUND>-<XRPL_TX>.json`. It polls until the round finalizes, re-encodes the response to confirm it is byte-identical, and calls the live `FdcVerification` before saving. No API key is required. Swagger is at <https://ctn2-data-availability.flare.network/api-doc#/fdc/fdc_proof_by_request_round_create>. |
 | Create an agreement before the payment that satisfies it | Project Hardhat script | `npm run create:agreement` | The agreement ID and its committed terms, saved to `evidence/coston2-agreement-<id>.json`. It reads the current validated XRPL ledger as the evidence floor, so the matching payment must be sent afterwards. |
 | Submit a finalized proof to the agreement contract | Project Hardhat script | `AGREEMENT_ID=<id> npm run fdc:record` | The public Coston2 transaction that moves an agreement to `PaidVerified`, saved to `evidence/coston2-paid-agreement-<id>.json`. |
+| Assert an agreement went unpaid | Project script | `AGREEMENT_ID=<id> npm run fdc:prepare:overdue` | Request bytes for `XRPPaymentNonexistence`, with the search window taken from the agreement rather than chosen. It refuses while the deadline is still open. |
+| Record verified non-payment | Project Hardhat script | `AGREEMENT_ID=<id> npm run fdc:record:overdue` | The public Coston2 transaction that moves an agreement to `OverdueVerified`, saved to `evidence/coston2-overdue-agreement-<id>.json`. |
 | Confirm deployment has the expected live-network configuration | Project Hardhat script + public RPC | `npm run deploy:check:coston2` | Chain ID `114`, deployed bytecode, zero verifier override, and `nextAgreementId`. |
 
 The Coston2 RPC used by the Hardhat configuration is
@@ -147,6 +149,16 @@ acceptable; never export a wallet that holds real funds.
   on 28 August 2026.
 - In PowerShell the last step is `$env:AGREEMENT_ID=2; npm run fdc:record`. The
   `VAR=value command` form is POSIX only and fails on Windows.
+- The overdue branch needs a destination that genuinely receives nothing. Pointing it
+  at an address that has already been paid makes the verifier refuse the request,
+  correctly. Generate a fresh one with
+  `node -e "console.log(require('xrpl').Wallet.generate().address)"` and never pay it.
+- `npm run fdc:proof` serves both branches. It reads the attestation type out of the
+  first 32 bytes of the request, so there is no flag to remember and no way to decode
+  a proof with the wrong struct.
+- An overdue request cannot be built before the deadline passes, because the
+  attestation cannot close a window that is still open. This sequence produced
+  agreement `3` on 28 August 2026.
 - A proof that `verifyXRPPayment` accepts can still be rejected by `LatePayShield`.
   The verifier only attests that the response is in the round's Merkle tree; the
   agreement's destination, amount, tag, ledger window, and deadline are checked

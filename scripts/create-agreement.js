@@ -145,12 +145,17 @@ async function main() {
   console.log(`   Explorer: https://coston2-explorer.flare.network/tx/${tx.hash}`);
   console.log(`\nSaved: ${outPath}`);
   console.log(
-    `\nNext, in this order:\n` +
+    `\nTo prove this agreement was paid, in this order:\n` +
       `  npm run spike:xrpl                       pays ${SUPPLIER} after this agreement\n` +
       `  npm run fdc:prepare\n` +
       `  npm run fdc:submit\n` +
       `  npm run fdc:proof\n` +
-      `  AGREEMENT_ID=${agreementId} npm run fdc:record`
+      `  AGREEMENT_ID=${agreementId} npm run fdc:record\n` +
+      `\nTo prove it went unpaid, send nothing and wait for the deadline, then:\n` +
+      `  AGREEMENT_ID=${agreementId} npm run fdc:prepare:overdue\n` +
+      `  npm run fdc:submit\n` +
+      `  npm run fdc:proof\n` +
+      `  AGREEMENT_ID=${agreementId} npm run fdc:record:overdue`
   );
 }
 
