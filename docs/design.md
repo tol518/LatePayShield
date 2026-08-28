@@ -1,6 +1,11 @@
 # Product and Experience Design
 
-**Current status:** Behavioral direction is defined; no frontend or visual system is implemented.
+**Current status:** The local testnet UI implements preparation, MetaMask
+registration, live agreement reads, Xaman/manual payment submission, XRPL
+matching, and FDC job progress. AI extraction, durable persistence, and a
+production service are not implemented.
+
+The detailed visual and component guidance lives in [`ui-language.md`](ui-language.md).
 
 ## Experience goal
 

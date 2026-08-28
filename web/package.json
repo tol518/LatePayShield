@@ -1,0 +1,27 @@
+{
+  "name": "latepay-shield-web",
+  "version": "0.1.0",
+  "description": "LatePay Shield frontend: agreement, payment instructions, and evidence screens.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server/dev.js",
+    "dev:ui": "vite",
+    "dev:server": "node server/index.js",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node server/index.js",
+    "test": "node --test src/lib/*.test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "ethers": "^6.17.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "xumm-sdk": "^1.11.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.1.12"
+  }
+}

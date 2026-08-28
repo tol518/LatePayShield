@@ -14,6 +14,7 @@ The user's current request takes priority. Inspect the current branch, diff, rep
 | Tests, verification, CI, testnet evidence, demo operation, or fallback media | [`docs/testing-and-demo.md`](docs/testing-and-demo.md) |
 | Why a durable choice was made | [`docs/decisions.md`](docs/decisions.md) |
 | A dated implementation sequence | [`docs/plans/`](docs/plans/) |
+| The local AI agent's skills, output schemas, guardrails, or UK-law snapshot | [`docs/ai/SKILLS.md`](docs/ai/SKILLS.md) |
 
 ## Non-negotiable guardrails
 

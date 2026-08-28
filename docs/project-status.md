@@ -18,9 +18,10 @@ The exact external tools and URLs used to create this evidence are recorded in
 - Solidity `0.8.25` compilation succeeds for 123 files with Paris EVM target.
 - XRPL Testnet transaction `4174F0EC...249309` was rechecked live as validated, `tesSUCCESS`, ledger `20202706`, delivered amount 2,000,000 drops, and destination tag `2026001`.
 - `standardAddressHash()` was corrected to `keccak256(UTF8(trimmedAddress))` and verified against an FDC `XRPPayment` response for XRPL Testnet transaction `A0DA3E67...ADF3565` (Coston2 request transaction `68503B0C...6BC99F`, voting round `1437032`).
-- `LatePayShield` is deployed on Coston2 at `0x4A49...78B1` in transaction `0xfec3...7ae3`; public RPC readback confirms chain ID `114`, deployed bytecode, and zero verifier override. `nextAgreementId` is now `4`.
+- `LatePayShield` is deployed on Coston2 at `0x4A49...78B1` in transaction `0xfec3...7ae3`; public RPC readback confirms chain ID `114`, deployed bytecode, and zero verifier override. `nextAgreementId` is now `5`.
 - **A real XRPL payment has been verified on Coston2 through the Flare Data Connector.** Agreement `2` on `0x4A49...78B1` was created first in transaction `0xf25f...43df` with evidence floor ledger `20283755` and deadline `1787913245`. XRPL Testnet payment `2A06F207...91CD36` was sent afterwards in ledger `20283804`, `tesSUCCESS`, 2,000,000 drops, destination tag `2026001`. Its FDC request `0x3070...22d9` was answered in voting round `1438624`, and `recordVerifiedPayment` accepted the proof in transaction `0xc675...423e`, block `34585539`. Independent public RPC readback confirms status `PaidVerified`, XRPL transaction hash, and evidence ID `0xdaa9...18f8`.
 - **A real non-payment has been verified on Coston2.** Agreement `3` was created in transaction `0x73b1...1269` against a freshly generated XRPL address that was never paid, with evidence floor ledger `20284260` and a five-minute deadline of `1787907996`. After the deadline the `XRPPaymentNonexistence` request `0xbcfb...7493` was answered in voting round `1438645`, and `recordVerifiedNonPayment` accepted the proof in transaction `0xab0d...068e`, block `34586348`. The searched range was ledgers `20284260` to `20284354` exclusive, above `1999999` drops, destination tag `2026002`. Public readback confirms `OverdueVerified` with evidence ID `0x6881...14c1`.
+- **Agreement `4` is a further recorded paid-path result.** XRPL Testnet payment `397A2598...B264B47A` was recorded as `PaidVerified` in Coston2 transaction `0xf7ba...e781`, block `34593638`, using FDC voting round `1438816`; the evidence ID is `0x795b...ee7c` in `evidence/coston2-paid-agreement-4.json`.
 - The mirror case holds: the live verifier refuses a non-payment request when a qualifying payment exists in the window, and the destination tag is genuinely part of the match. Changing the tag alone flips the same window from refused to valid.
 - The live verifier matches `receivedAmount >= amount`, not `receivedAmount > amount` as `IXRPPaymentNonexistence` documents. For a payment that received exactly 2,000,000 drops the boundary sits between requested amounts `2000000` and `2000001`. The sweep is recorded in `evidence/fdc-nonexistence-threshold-probe.json`.
 - The whole lifecycle ran from the committed commands with no manual step: `create:agreement`, `spike:xrpl`, `fdc:prepare`, `fdc:submit`, `fdc:proof`, `fdc:record` for the paid branch, and `create:agreement`, `fdc:prepare:overdue`, `fdc:submit`, `fdc:proof`, `fdc:record:overdue` for the overdue branch.
@@ -35,13 +36,14 @@ The exact external tools and URLs used to create this evidence are recorded in
 ## Implemented but not externally verified
 
 - The creator-supplied `startLedger` cannot be corroborated on-chain. For agreement `2` it was read from the live XRPL ledger immediately before creation, but the contract cannot check that.
+- `web/` implements a local React/Vite testnet interface with MetaMask agreement creation, live registry reads, Xaman/manual payment paths, public XRPL matching, and opt-in FDC job orchestration. Its build and focused tests pass, but this specific browser-to-FDC job path has not yet been independently demonstrated as one uninterrupted GUI run. The job service is loopback-only and in-memory, not durable persistence.
 
 ## Not implemented
 
-- Frontend, API/application layer, persistence, wallet UI, and evidence screen.
 - AI extraction/confirmation flow.
 - FTSO conversion.
-- Prepared live/recorded demo flow using real Coston2/FDC identifiers.
+- Durable/multi-user application persistence, authentication, and job recovery.
+- Prepared live/recorded demo flow using the UI and real Coston2/FDC identifiers.
 
 ## Known issues
 
@@ -52,10 +54,10 @@ The exact external tools and URLs used to create this evidence are recorded in
 
 ## Next priorities
 
-1. Prepare the demo around agreements `2` and `3`, which are real evidence for both branches.
-2. Begin the evidence-focused frontend against the two recorded outcomes.
+1. Demonstrate one fresh paid agreement through the browser UI to `PaidVerified`, while retaining the public evidence package.
+2. Prepare the demo around agreements `2`, `3`, and `4`, which provide real evidence for both outcome branches and the current payment UI path.
 3. Make the npm verification script cross-platform before relying on it as a universal local command.
-4. Begin the smallest evidence-focused frontend using the verified FDC proof shape.
+4. Add durable, authenticated job handling before treating the local application service as anything beyond a prototype.
 
 ## Decision checkpoint
 

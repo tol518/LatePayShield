@@ -82,8 +82,9 @@ The `main` workflow for merge commit `e459042` completed successfully on 25 Augu
 | FDC payment proof | Real proof accepted by the contract | XRPL transaction `2A06F207...91CD36`; Coston2 request `0x3070...22d9`; voting round `1438624`; submission `0xc675...423e` | Agreement `2` reads back as `PaidVerified` with evidence ID `0xdaa9...18f8`. |
 | Agreement lifecycle | Live Coston2 agreement | Creation `0xf25f...43df`, agreement `2`, start ledger `20283755`, deadline `1787913245` | Created before its payment, so the evidence window is honest rather than back-fitted. |
 | FDC non-payment proof | Real proof accepted by the contract | Coston2 request `0xbcfb...7493`; voting round `1438645`; submission `0xab0d...068e` | Agreement `3` reads back as `OverdueVerified` with evidence ID `0x6881...14c1`. Searched ledgers `20284260` to `20284354` exclusive, above `1999999` drops, destination tag `2026002`. |
+| Additional paid-path record | Recorded live testnet evidence | Agreement `4`; XRPL `397A2598...B264B47A`; round `1438816`; Coston2 `0xf7ba...e781` | `evidence/coston2-paid-agreement-4.json` records `PaidVerified` and evidence ID `0x795b...ee7c`. |
+| Local web application | Local tests and production build | `web/` (`npm test`, `npm run build`) | React UI and loopback API compile and focused payment tests pass. The specific browser-triggered FDC job has not been independently recorded as a complete GUI run. |
 | FTSO | Optional/planned | None | Not implemented. |
-| Frontend | Planned | None | Not implemented. |
 
 ## External verification runbook
 

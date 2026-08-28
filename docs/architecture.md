@@ -1,9 +1,9 @@
 # Architecture
 
-**Current status:** Protocol foundation implemented locally; XRPL payment spike,
-Coston2 deployment, and FDC `XRPPayment` request/proof compatibility are verified.
-Submission of a real proof to a fresh agreement, the application layer, and frontend
-are not implemented.
+**Current status:** Both FDC outcome branches have been accepted by fresh Coston2
+agreements. A local React/Vite testnet application implements agreement creation,
+XRPL payment guidance/Xaman payment requests, public XRPL matching, and opt-in FDC
+job progress. It is not a durable or production application service.
 
 ## Implemented repository map
 
@@ -25,9 +25,15 @@ evidence/
 .github/
   workflows/ci.yml                  Node 24 compile/test/runtime-audit gate
   dependabot.yml                    Dependency update policy
+web/
+  src/                              React/Vite payment and evidence UI
+  server/index.js                   Loopback-only Xaman and opt-in FDC job service
+  vite.config.js                    Shared canonical-module alias and dev proxy
 ```
 
-No web application, API, database, wallet UI, or AI integration exists yet.
+There is no database, durable job queue, authenticated multi-user backend, or AI
+integration yet. The web service keeps Xaman sessions and FDC job progress in
+memory and binds to `127.0.0.1` by default.
 
 ## Runtime and dependencies
 
@@ -40,8 +46,10 @@ No web application, API, database, wallet UI, or AI integration exists yet.
 | XRPL client | `xrpl` `5.1.0` range |
 | EVM client/hash utilities | `ethers` `6.17.0` range |
 | Configuration | `dotenv`; ignored local `.env` derived from `.env.example` |
+| Web UI | React `19`, Vite `7`, and a CommonJS alias to `lib/canonical.js` |
+| Xaman integration | Server-only `xumm-sdk`; credentials stay in the root ignored `.env` |
 
-The application stack remains open. The earlier Next.js/TypeScript/Tailwind suggestion is not an implemented decision.
+The earlier Next.js/TypeScript/Tailwind suggestion is not an implemented decision.
 
 ## Networks
 
@@ -50,7 +58,7 @@ The application stack remains open. The earlier Next.js/TypeScript/Tailwind sugg
 | Flare Coston2 | RPC `https://coston2-api.flare.network/ext/C/rpc`, chain ID `114` |
 | XRPL Testnet | WebSocket `wss://s.altnet.rippletest.net:51233` |
 | FDC verifier | `https://fdc-verifiers-testnet.flare.network`; requires `X-API-KEY`, published public test value |
-| FDC DA layer | Base URL not configured or confirmed |
+| FDC DA layer | `https://ctn2-data-availability.flare.network` via the existing proof script |
 
 Mainnet is deliberately absent from `hardhat.config.js`. The XRPL spike refuses endpoints that do not visibly identify as altnet/testnet.
 
@@ -77,7 +85,12 @@ Contract validates proof and agreement-specific fields
 PaidVerified                 OverdueVerified
 ```
 
-The live proof-acquisition path between XRPL and these contract calls does not exist yet. Local tests inject `MockFdcVerification` only on Hardhat chain ID `31337`.
+The live proof-acquisition path is implemented in the root `fdc:*` scripts and
+has completed both paid and overdue runs. The local web service may orchestrate
+the paid chain only when `FDC_UI_AUTOMATION_ENABLED=true`; it invokes those
+scripts unchanged, serializes jobs because they hand off through `evidence/`,
+and never sends signing configuration to the browser. Local tests still inject
+`MockFdcVerification` only on Hardhat chain ID `31337`.
 
 ## Component boundaries
 
@@ -101,9 +114,14 @@ The constructor accepts a verifier override only at chain ID `31337`. A non-zero
 
 `scripts/xrpl-spike.js` creates throwaway faucet-funded wallets, submits a Testnet payment, and stores public identifiers without seeds. It proves payment creation/retrieval, not FDC compatibility.
 
-### Future application layer
+### Application layer
 
-The future application must handle human confirmation, agreement creation, proof requests/polling, contract transactions, evidence presentation, and truthful errors. It must not become the source of truth for verified outcomes.
+`web/` handles human confirmation, MetaMask agreement creation, public Coston2
+reads, payment guidance, Xaman Testnet payment requests, public XRPL matching,
+and truthful pending/failure states. Its optional FDC endpoint starts the
+existing script chain only after the browser has matched a payment. The contract
+remains the source of truth: the UI displays a final paid outcome only after a
+fresh Coston2 read returns `PaidVerified`.
 
 ## Trust boundaries
 

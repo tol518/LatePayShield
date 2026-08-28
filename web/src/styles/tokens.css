@@ -1,0 +1,107 @@
+/* LatePay Shield design foundation.
+   Values follow docs/ui-language.md. Change them here, not in component styles. */
+
+:root {
+  /* Colour roles */
+  --canvas: #f7f8fa;
+  --surface: #ffffff;
+  --surface-quiet: #f2f4f7;
+  --border: #e1e5ea;
+  --border-strong: #cfd6de;
+  --ink: #10273f;
+  --muted: #566977;
+  --primary: #1f5fcc;
+  --primary-ink: #17469a;
+  --primary-wash: #eef3fd;
+  --primary-wash-border: #d3e0f8;
+  --positive: #1c7048;
+  --positive-wash: #eaf5ef;
+  --positive-wash-border: #c9e5d6;
+  --attention: #9a5406;
+  --attention-wash: #fdf3e6;
+  --attention-wash-border: #f3ddbd;
+  --danger: #a8291f;
+  --danger-wash: #fdeeec;
+  --danger-wash-border: #f6d3ce;
+  --testnet-ink: #3f4c7a;
+  --testnet-wash: #eef0f8;
+  --testnet-wash-border: #d3d8ec;
+
+  /* 8 px spacing scale */
+  --s1: 8px;
+  --s2: 16px;
+  --s3: 24px;
+  --s4: 32px;
+  --s5: 40px;
+  --s6: 48px;
+
+  /* Shape */
+  --radius-card: 12px;
+  --radius-control: 8px;
+
+  /* Type */
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Layout */
+  --shell-width: 1160px;
+  --reading-width: 760px;
+}
+
+/* Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  border-bottom: 1px solid rgb(31 95 204 / 0.3);
+}
+
+a:hover {
+  color: var(--primary-ink);
+  border-bottom-color: currentColor;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

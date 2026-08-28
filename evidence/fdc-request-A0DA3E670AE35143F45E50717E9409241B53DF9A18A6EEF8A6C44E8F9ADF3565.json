@@ -6,10 +6,12 @@
   "transactionId": "0xa0da3e670ae35143f45e50717e9409241b53df9a18a6eef8a6c44e8f9adf3565",
   "proofOwner": "0xBA098299018aa56eE7Cf2372d7017B331a413E0B",
   "requestBytes": "0x5852505061796d656e7400000000000000000000000000000000000000000000746573745852500000000000000000000000000000000000000000000000000013f75b9192474d3b5e3e8c5ad6eb9c90309a05b58de0039360afd2cd708e4ac5a0da3e670ae35143f45e50717e9409241b53df9a18a6eef8a6c44e8f9adf3565000000000000000000000000ba098299018aa56ee7cf2372d7017b331a413e0b",
-  "submissionTransaction": "0x68503b0c1dd3a99dcb9dad52edd58481b44083b895ff95db8072fe05d76bc99f",
-  "blockNumber": 34519656,
-  "votingRoundId": 1437032,
+  "submissionTransaction": "0xdf41004215b6f28535ef08f3d8caa2dcfebef471516596afe3dd3796985ade94",
+  "blockNumber": 34562508,
+  "votingRoundId": 1438066,
   "feeWei": "1000",
-  "systemsExplorer": "https://coston2-systems-explorer.flare.network/voting-round/1437032?tab=fdc",
-  "explorer": "https://coston2-explorer.flare.network/tx/0x68503b0c1dd3a99dcb9dad52edd58481b44083b895ff95db8072fe05d76bc99f"
+  "systemsExplorer": "https://coston2-systems-explorer.flare.network/voting-round/1438066?tab=fdc",
+  "explorer": "https://coston2-explorer.flare.network/tx/0xdf41004215b6f28535ef08f3d8caa2dcfebef471516596afe3dd3796985ade94",
+  "submittedAt": "2026-08-27T18:39:05.135Z",
+  "submitter": "0xBA098299018aa56eE7Cf2372d7017B331a413E0B"
 }

@@ -24,7 +24,7 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 
 | Task | Status | Completion evidence |
 |---|---|---|
-| Frontend, API/application layer, persistence, wallet UI, and evidence screen | Not started | No application artifact yet. |
+| Frontend, local application layer, wallet UI, and evidence screen | In progress | `web/` provides MetaMask Coston2 agreement registration, live registry reads, Xaman/manual XRPL Testnet payment, matching checks, and a local opt-in FDC job runner. Job state is in memory; there is no durable or multi-user backend yet. |
 | AI extraction and mandatory human-confirmation flow | Not started | No extraction schema or confirmation UI yet. |
 | FTSO conversion | Not started | Optional after the core evidence flow. |
 
