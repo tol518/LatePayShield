@@ -61,10 +61,11 @@ async function main() {
     );
   }
 
-  // The attestation searches for a payment strictly greater than this value.
-  // Requesting the full amount would ignore a payment of exactly that amount
-  // and confirm a false overdue, so the threshold is one drop lower. The
-  // contract enforces the same subtraction on submission.
+  // The contract pins the request to one drop below the expected amount and
+  // rejects anything else, so this is not a free choice. Note that the live
+  // verifier matches payments at or above this value rather than strictly
+  // above it, which makes the bound one drop wider than the interface docs
+  // imply. It stays safe against a false overdue either way.
   const threshold = (BigInt(agreement.terms.amountDrops) - 1n).toString();
 
   const requestBody = {

@@ -21,7 +21,8 @@ The exact external tools and URLs used to create this evidence are recorded in
 - `LatePayShield` is deployed on Coston2 at `0x4A49...78B1` in transaction `0xfec3...7ae3`; public RPC readback confirms chain ID `114`, deployed bytecode, and zero verifier override. `nextAgreementId` is now `4`.
 - **A real XRPL payment has been verified on Coston2 through the Flare Data Connector.** Agreement `2` on `0x4A49...78B1` was created first in transaction `0xf25f...43df` with evidence floor ledger `20283755` and deadline `1787913245`. XRPL Testnet payment `2A06F207...91CD36` was sent afterwards in ledger `20283804`, `tesSUCCESS`, 2,000,000 drops, destination tag `2026001`. Its FDC request `0x3070...22d9` was answered in voting round `1438624`, and `recordVerifiedPayment` accepted the proof in transaction `0xc675...423e`, block `34585539`. Independent public RPC readback confirms status `PaidVerified`, XRPL transaction hash, and evidence ID `0xdaa9...18f8`.
 - **A real non-payment has been verified on Coston2.** Agreement `3` was created in transaction `0x73b1...1269` against a freshly generated XRPL address that was never paid, with evidence floor ledger `20284260` and a five-minute deadline of `1787907996`. After the deadline the `XRPPaymentNonexistence` request `0xbcfb...7493` was answered in voting round `1438645`, and `recordVerifiedNonPayment` accepted the proof in transaction `0xab0d...068e`, block `34586348`. The searched range was ledgers `20284260` to `20284354` exclusive, above `1999999` drops, destination tag `2026002`. Public readback confirms `OverdueVerified` with evidence ID `0x6881...14c1`.
-- The `expectedDrops - 1` threshold is confirmed against a real verifier response. The attestation searches for a payment strictly greater than the requested value, so the subtraction is what stops a payment of exactly the expected amount from producing a false overdue.
+- The mirror case holds: the live verifier refuses a non-payment request when a qualifying payment exists in the window, and the destination tag is genuinely part of the match. Changing the tag alone flips the same window from refused to valid.
+- The live verifier matches `receivedAmount >= amount`, not `receivedAmount > amount` as `IXRPPaymentNonexistence` documents. For a payment that received exactly 2,000,000 drops the boundary sits between requested amounts `2000000` and `2000001`. The sweep is recorded in `evidence/fdc-nonexistence-threshold-probe.json`.
 - The whole lifecycle ran from the committed commands with no manual step: `create:agreement`, `spike:xrpl`, `fdc:prepare`, `fdc:submit`, `fdc:proof`, `fdc:record` for the paid branch, and `create:agreement`, `fdc:prepare:overdue`, `fdc:submit`, `fdc:proof`, `fdc:record:overdue` for the overdue branch.
 - The DA-layer proof for voting round `1437032` was retrieved by `npm run fdc:proof`, re-encoded byte-for-byte, and accepted by the enshrined `FdcVerification` at `0x906507E0B64bcD494Db73bd0459d1C667e14B933`, which returned true for `verifyXRPPayment`. The retrieved proof and its request bytes are committed under `evidence/`.
 - The DA layer answers `proof-by-request-round-raw` without an API key, so proof retrieval is reproducible by anyone with no credentials.
@@ -33,7 +34,6 @@ The exact external tools and URLs used to create this evidence are recorded in
 
 ## Implemented but not externally verified
 
-- Only the unpaid case of the non-payment path has been exercised. A destination that *was* paid should make the verifier refuse the request, and that has not been confirmed against the live verifier.
 - The creator-supplied `startLedger` cannot be corroborated on-chain. For agreement `2` it was read from the live XRPL ledger immediately before creation, but the contract cannot check that.
 
 ## Not implemented
@@ -48,6 +48,7 @@ The exact external tools and URLs used to create this evidence are recorded in
 1. `npm run check` and `npm test` fail at the override-guard step in Windows `cmd.exe` because the package script uses POSIX environment assignment. The underlying guard tests pass with PowerShell syntax.
 2. Full `npm ci` auditing reports vulnerabilities in transitive development tooling even though the runtime-only CI audit is clean. Current major Hardhat/toolbox Dependabot upgrades fail CI.
 3. README's original “memo/reference matching” narrative exceeded the contract: the memo is captured in XRPL evidence but is not checked by `LatePayShield.sol`.
+4. `recordVerifiedNonPayment` pins the request to `expectedDrops - 1` on the stated assumption that the attestation matches payments strictly greater than the requested amount. The live verifier matches at or above it instead. The guard is still safe, because a payment of exactly `expectedDrops` continues to block an overdue verdict, but it is one drop wider than intended: a payment of exactly `expectedDrops - 1` also blocks it, so such an agreement can be recorded as neither paid nor overdue and its only exit is `markDisputed`. Correcting it means requesting `expectedDrops` instead, which changes the contract and needs a redeploy.
 
 ## Next priorities
 
