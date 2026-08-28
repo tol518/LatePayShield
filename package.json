@@ -36,6 +36,8 @@
     "fdc:submit": "hardhat run scripts/submit-fdc-request.js --network coston2",
     "fdc:proof": "hardhat run scripts/fetch-fdc-proof.js --network coston2",
     "fdc:record": "hardhat run scripts/record-fdc-proof.js --network coston2",
+    "fdc:prepare:overdue": "node scripts/prepare-nonpayment-request.js",
+    "fdc:record:overdue": "hardhat run scripts/record-nonpayment-proof.js --network coston2",
     "spike:xrpl": "node scripts/xrpl-spike.js",
     "test:override-guard": "HARDHAT_CHAIN_ID=114 hardhat test test/VerifierOverrideGuard.test.js"
   }
