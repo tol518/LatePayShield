@@ -1,0 +1,16 @@
+{
+  "capturedAt": "2026-08-28T08:36:59.984Z",
+  "attestationType": "XRPPayment",
+  "sourceId": "testXRP",
+  "verifier": "https://fdc-verifiers-testnet.flare.network/verifier/xrp/XRPPayment/prepareRequest",
+  "transactionId": "0x2a06f207bb92c296cbfe145ebd692c269a45dd298ef92fd18111ef821891cd36",
+  "proofOwner": "0xBA098299018aa56eE7Cf2372d7017B331a413E0B",
+  "requestBytes": "0x5852505061796d656e74000000000000000000000000000000000000000000007465737458525000000000000000000000000000000000000000000000000000ad4aaa8e637a2b59c363b98ade06193f96781cceaf09f08402602b5c44801aec2a06f207bb92c296cbfe145ebd692c269a45dd298ef92fd18111ef821891cd36000000000000000000000000ba098299018aa56ee7cf2372d7017b331a413e0b",
+  "submittedAt": "2026-08-28T08:37:14.908Z",
+  "submitter": "0xBA098299018aa56eE7Cf2372d7017B331a413E0B",
+  "submissionTransaction": "0x307096c6f0650a32f393191eb7e2d0337c8af293d92ff4c5d7368dd8e8e622d9",
+  "blockNumber": 34585451,
+  "votingRoundId": 1438624,
+  "systemsExplorer": "https://coston2-systems-explorer.flare.network/voting-round/1438624?tab=fdc",
+  "explorer": "https://coston2-explorer.flare.network/tx/0x307096c6f0650a32f393191eb7e2d0337c8af293d92ff4c5d7368dd8e8e622d9"
+}
