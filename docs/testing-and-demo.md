@@ -81,7 +81,7 @@ The `main` workflow for merge commit `e459042` completed successfully on 25 Augu
 | Coston2 deployment | Live testnet deployment | `0xfec3a90684482dd2cbc04c5a2e25a948968570b64fd1c7e610f13dfdcb487ae3` | Contract `0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1`; chain `114`; zero verifier override; public RPC readback passed. |
 | FDC payment proof | Real proof accepted by the contract | XRPL transaction `2A06F207...91CD36`; Coston2 request `0x3070...22d9`; voting round `1438624`; submission `0xc675...423e` | Agreement `2` reads back as `PaidVerified` with evidence ID `0xdaa9...18f8`. |
 | Agreement lifecycle | Live Coston2 agreement | Creation `0xf25f...43df`, agreement `2`, start ledger `20283755`, deadline `1787913245` | Created before its payment, so the evidence window is honest rather than back-fitted. |
-| FDC non-payment proof | Planned | None | Not implemented. |
+| FDC non-payment proof | Real proof accepted by the contract | Coston2 request `0xbcfb...7493`; voting round `1438645`; submission `0xab0d...068e` | Agreement `3` reads back as `OverdueVerified` with evidence ID `0x6881...14c1`. Searched ledgers `20284260` to `20284354` exclusive, above `1999999` drops, destination tag `2026002`. |
 | FTSO | Optional/planned | None | Not implemented. |
 | Frontend | Planned | None | Not implemented. |
 
@@ -170,18 +170,51 @@ Ordering is the part that matters. Set `XRPL_SUPPLIER_ADDRESS` before step 2, or
 `spike:xrpl` funds a fresh supplier the agreement knows nothing about and the proof
 fails on `DestinationMismatch`.
 
+### 4. Verify the real overdue path — completed
+
+Run on 28 August 2026 as agreement `3`. It needs a destination that genuinely
+receives nothing, so a fresh XRPL address was generated and never paid.
+
+```bash
+XRPL_SUPPLIER_ADDRESS=<a fresh, never-paid address> DUE_IN_MINUTES=5 npm run create:agreement
+# send nothing, wait for the deadline to pass
+AGREEMENT_ID=3 npm run fdc:prepare:overdue
+npm run fdc:submit
+npm run fdc:proof
+AGREEMENT_ID=3 npm run fdc:record:overdue
+```
+
+The window came back as ledgers `20284260` to `20284354` exclusive, closing at
+`1787908000`, four seconds past the `1787907996` deadline. Every bound matched the
+agreement exactly: `minimalBlockNumber` equal to `startLedger`, `deadlineTimestamp`
+equal to `dueAt`, and the threshold at `1999999`.
+
+That threshold is the reason this branch needed real verification rather than mock
+coverage. The attestation searches for a payment **strictly greater than** the value
+requested, so asking for the full `2000000` would let a payment of exactly `2000000`
+fall outside the search. The verifier would truthfully report nothing found and the
+contract would record a false overdue against someone who paid in full.
+`recordVerifiedNonPayment` enforces the subtraction itself rather than trusting the
+requester.
+
+`fdc:prepare:overdue` refuses to build a request while the deadline is still open.
+This was confirmed by running it against agreement `3` five minutes early.
+
+An `OverdueVerified` result proves only that no qualifying payment reached the
+recorded destination, with the recorded tag, above the recorded threshold, inside the
+recorded ledger range. It does not prove the payer never paid by any other means.
+
 ## Required next integration tests
 
-1. Define a safe ledger range and obtain `XRPPaymentNonexistence` evidence.
-2. Confirm the `expectedDrops - 1` threshold using the real verifier response.
-3. Exercise network pending, timeout, rejection, and retry behavior through the future application.
+1. Exercise network pending, timeout, rejection, and retry behavior through the future application.
+2. Confirm that a destination which *was* paid produces a rejected non-payment request, rather than only confirming the unpaid case.
 
 ## Three-minute demo
 
 1. **Problem:** supplier burden and the need for a shared payment outcome.
 2. **Confirm:** controlled invoice, human-confirmed terms, real agreement ID/hash.
 3. **Paid branch:** agreement `2`, its XRPL transaction `2A06F207...91CD36`, and the FDC proof accepted on Coston2 in `0xc675...423e`.
-4. **Overdue branch:** precisely bounded non-payment evidence; otherwise remain visibly pending.
+4. **Overdue branch:** agreement `3`, unpaid, with non-payment evidence bounded to ledgers `20284260` to `20284354` and accepted on Coston2 in `0xab0d...068e`.
 5. **Close:** XRPL provides the payment record, Flare verifies/records the agreement outcome, and future AI removes administration without determining financial truth.
 
 ## Fallback procedure

@@ -17,8 +17,8 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 |---|---|---|
 | FDC verifier request, fee lookup, Coston2 submission, voting-round tracking, and DA proof acquisition | Done | `fdc:prepare`, `fdc:submit`, `fdc:proof`, and `fdc:record` cover the chain end to end and hand each step's output to the next through `evidence/`. `fdc:prepare` reproduces the historic request bytes exactly, and `fdc:proof` was run against real round `1437032` where the live `FdcVerification` at `0x9065...B933` returned true for the retrieved proof. |
 | Real paid-path verification | Done | Agreement `2` created in `0xf25f...43df`, XRPL payment `2A06F207...91CD36` sent afterwards in ledger `20283804`, FDC request answered in round `1438624`, and `recordVerifiedPayment` accepted the proof in `0xc675...423e`. Public readback shows `PaidVerified` with evidence ID `0xdaa9...18f8`. |
-| Real overdue-path verification | Not started | Requires a separate short-lived agreement and `XRPPaymentNonexistence` proof. |
-| Live/recorded demo using real identifiers | Not started | Unblocked. Agreement `2` is a complete real paid lifecycle to build the demo around. |
+| Real overdue-path verification | Done | Agreement `3` created in `0x73b1...1269` against a never-paid address, request answered in round `1438645`, and `recordVerifiedNonPayment` accepted the proof in `0xab0d...068e`. Public readback shows `OverdueVerified` with evidence ID `0x6881...14c1`. |
+| Live/recorded demo using real identifiers | Not started | Unblocked. Agreements `2` and `3` are real evidence for the paid and overdue branches. |
 
 ## Tolga — application and AI
 
@@ -30,15 +30,14 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 
 ## Immediate order
 
-1. Implement the non-payment proof path against a short-lived agreement, using
-   `DUE_IN_MINUTES` to force a deadline that passes during the run.
-2. Start the evidence-focused frontend against agreement `2`, which is real
-   end-to-end evidence rather than a fixture.
-3. Prepare the demo around agreement `2`.
+1. Start the evidence-focused frontend against agreements `2` and `3`, which are
+   real recorded outcomes rather than fixtures.
+2. Prepare the demo around both branches.
 
-The paid chain runs unattended from `create:agreement` through `fdc:record`. Set
-`XRPL_SUPPLIER_ADDRESS` before starting, or `spike:xrpl` will fund a supplier the
-agreement knows nothing about.
+Both chains run unattended from `create:agreement`. For the paid branch set
+`XRPL_SUPPLIER_ADDRESS` first, or `spike:xrpl` funds a supplier the agreement knows
+nothing about. For the overdue branch point it at an address that will never be paid
+and use a short `DUE_IN_MINUTES`.
 
 No issue evidence may contain a Coston2 private key, XRPL seed, recovery phrase,
 verifier key other than the published public test key, or full `.env` content.
