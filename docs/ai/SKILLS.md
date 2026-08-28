@@ -1,7 +1,9 @@
 # LatePay Shield Local AI Agent — Skills and Guardrails
 
-**Status:** Specification. No AI runtime exists in the repository yet.
-**Target model:** Qwen3-8B, run locally on the operator's machine (Ollama / llama.cpp / LM Studio).
+**Status:** Skill S1 is implemented in `web/server/ai/` and reachable from the UI
+behind `AI_ASSISTANT_ENABLED`. S2 to S5 remain specification only.
+**Target model:** Qwen3-8B, run locally on the operator's machine (Ollama / llama.cpp / LM Studio / MLX).
+**Verified against:** `mlx-community/Qwen3-8B-4bit` on an operator-hosted MLX server over a private network.
 **Owning documents:** [`AGENTS.md`](../../AGENTS.md), [`docs/project-context.md`](../project-context.md), [`docs/decisions.md`](../decisions.md) (D-003).
 
 This file is the capability contract for the local model. It defines what the
@@ -505,7 +507,7 @@ weights. A local 8B model's recollection of UK statute is not a source.
 
 | Setting | Value | Reason |
 |---|---|---|
-| Model | `qwen3:8b` | Fits comfortably on a laptop; adequate for extraction and narration. |
+| Model | `qwen3:8b` | Fits comfortably on a laptop; adequate for extraction and narration. Configured by `LOCAL_LLM_MODEL`; any OpenAI-compatible runner works. |
 | Thinking mode | On for S1 and S3; off for S2, S4, S5 | Reasoning helps extraction and status logic; it adds latency and drift to drafting and to narration of pre-computed figures. |
 | Temperature | `0.1` for S1 and S5; `0.3` for S2, S3, S4 | Extraction must be near-deterministic. |
 | `top_p` | `0.9` | |
@@ -522,7 +524,23 @@ prompt disagree, this file is authoritative and the prompt is the bug.
 
 ## 9. Acceptance checks before the agent is enabled
 
-The agent stays behind a flag until all of these hold:
+The agent stays behind a flag until all of these hold. Current state for the
+implemented skill S1, checked on 28 August 2026 against
+`mlx-community/Qwen3-8B-4bit`:
+
+| # | S1 state |
+|---|---|
+| 1 | Enforced in code by `extractionSchema.js`; a malformed reply is rejected, retried once, then abandoned. Verified on a two-document manual run, not yet on a committed fixture set. |
+| 2 | Enforced structurally: a populated payment-rail field rejects the whole response. Unit-tested. |
+| 3 | Held on one manual injection fixture: the model returned `refusal` with `reason: "unsafe_request"`. Not yet a committed regression fixture. |
+| 4 | Not applicable to S1. |
+| 5 | Not applicable to S1. |
+| 6 | Holds by construction: S4/S5 are not implemented and the snapshot is unused. |
+| 7 | Not applicable to S1. |
+| 8 | Holds: the assistant is off by default and the form is complete without it. |
+| 9 | Holds for the service log, which records model, finish reason, token counts, and latency only. Not yet checked across a full demo run. |
+
+
 
 1. Every skill returns schema-valid JSON on its fixture set, and malformed
    output is rejected rather than partially parsed.

@@ -77,6 +77,17 @@ Record durable product, architecture, security, data, and delivery decisions. Ap
 
 **Consequence:** Product copy must not claim memo/reference verification. Changing this requires a new evidence design and contract/data review.
 
+## D-008 - The browser never addresses the model
+
+**Date:** 28 August 2026
+**Status:** Accepted
+
+**Decision:** The local model is reached only by `web/server`, over an OpenAI-compatible HTTP endpoint configured in the ignored root `.env`. The browser calls same-origin `/api/ai/*`, and every reply is schema-validated in the service before it reaches the UI.
+
+**Reason:** A direct browser call would put unvalidated model output on screen, which is the failure `docs/ai/SKILLS.md` §0 exists to prevent. It would also publish the model host to every client bundle and make CORS, mixed content, and private-network reachability into frontend problems.
+
+**Consequence:** Swapping the model or its runner is a `.env` change. Any future skill adds a route and a validator in `web/server/ai/`, never a fetch from a component.
+
 ## Entry format
 
 New entries contain an ID, title, date, status, decision, reason, and consequence. Include an official source and check date when a decision depends on time-sensitive event, network, or sponsor information.

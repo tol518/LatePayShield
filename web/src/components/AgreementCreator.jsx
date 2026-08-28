@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { parseUnits } from 'ethers';
 import { canonicalizeTerms, invoiceHash, standardAddressHash } from '@latepay/canonical';
 import { CheckCircle, Document, InfoCircle, Progress, Warning } from './Icons.jsx';
@@ -61,7 +61,7 @@ function buildReview(form) {
   };
 }
 
-export default function AgreementCreator({ onCreated }) {
+export default function AgreementCreator({ onCreated, suggestions }) {
   const [form, setForm] = useState(initialForm);
   const [review, setReview] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -69,6 +69,20 @@ export default function AgreementCreator({ onCreated }) {
   const [phase, setPhase] = useState('editing');
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+
+  /* Suggested values arrive from the optional local assistant and land in the
+   * same editable fields a user types into. They are merged, never applied as a
+   * whole form, so a manually typed value is not overwritten by a blank
+   * suggestion — and any pending review is discarded, because the terms the
+   * user was about to confirm have changed. */
+  useEffect(() => {
+    if (!suggestions?.values || phase === 'created') return;
+    setForm((current) => ({ ...current, ...suggestions.values }));
+    setReview(null);
+    setConfirmed(false);
+    setError('');
+    setPhase('editing');
+  }, [suggestions]);
 
   function updateField(event) {
     const { name, value } = event.target;
@@ -199,6 +213,13 @@ export default function AgreementCreator({ onCreated }) {
                 />
               </div>
             </fieldset>
+
+            {suggestions?.count && phase !== 'created' ? (
+              <p className="assistant-note">
+                <InfoCircle /> {suggestions.count} field{suggestions.count === 1 ? '' : 's'} above were
+                proposed by the local assistant and are unconfirmed. Edit anything that is wrong.
+              </p>
+            ) : null}
 
             <div className="form-actions">
               <button className="btn btn--primary" type="submit" disabled={busy || phase === 'created'}>

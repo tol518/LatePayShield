@@ -25,7 +25,7 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 | Task | Status | Completion evidence |
 |---|---|---|
 | Frontend, local application layer, wallet UI, and evidence screen | In progress | `web/` provides MetaMask Coston2 agreement registration, live registry reads, Xaman/manual XRPL Testnet payment, matching checks, and a local opt-in FDC job runner. Job state is in memory; there is no durable or multi-user backend yet. |
-| AI extraction and mandatory human-confirmation flow | Not started | No extraction schema or confirmation UI yet. |
+| AI extraction and mandatory human-confirmation flow | In progress | Skill S1 of `docs/ai/SKILLS.md` is implemented behind `AI_ASSISTANT_ENABLED`: `web/server/ai/` holds the model client, the S1 prompt, and the schema validator that gates every reply, and `AiInvoiceExtraction.jsx` fills the agreement form with quoted, editable suggestions. The validator rejects a reply that populates `xrplDestination`, `destinationTag`, `amountDrops` or `startLedger`, or that claims no human confirmation is needed, and nulls any field whose quote is not a verbatim span of the pasted document; 11 unit executions cover it. A manual two-document run against a local `mlx-community/Qwen3-8B-4bit` endpoint returned a schema-valid extraction and refused an injection fixture. Remaining: a committed fixture suite for the `SKILLS.md` §9 checks, one demonstrated browser run, and skills S2 to S5. |
 | FTSO conversion | Not started | Optional after the core evidence flow. |
 
 ## Immediate order
@@ -33,6 +33,9 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 1. Start the evidence-focused frontend against agreements `2` and `3`, which are
    real recorded outcomes rather than fixtures.
 2. Prepare the demo around both branches.
+3. Commit AI fixtures covering `SKILLS.md` §9 checks 1, 3 and 9, so the injection
+   refusal and the log-hygiene guarantee are regression-tested rather than
+   manually observed.
 
 Both chains run unattended from `create:agreement`. For the paid branch set
 `XRPL_SUPPLIER_ADDRESS` first, or `spike:xrpl` funds a supplier the agreement knows
@@ -40,4 +43,5 @@ nothing about. For the overdue branch point it at an address that will never be 
 and use a short `DUE_IN_MINUTES`.
 
 No issue evidence may contain a Coston2 private key, XRPL seed, recovery phrase,
-verifier key other than the published public test key, or full `.env` content.
+verifier key other than the published public test key, full `.env` content, or the
+address of an operator's private AI model host.

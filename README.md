@@ -17,6 +17,7 @@ LatePay Shield turns confirmed invoice terms into a testnet payment agreement. X
 | Coston2 deployment | Deployed at `0x4A49...78B1`; public readback passed. |
 | Real FDC payment/non-payment proof | Both outcome branches have been accepted by the deployed Coston2 contract. |
 | Frontend | Local React/Vite testnet UI implements agreement registration, Xaman payment, XRPL matching, and FDC-job progress. |
+| AI assistant | Skill S1 (invoice term extraction) implemented behind an off-by-default flag; suggestions are quoted, editable, and never payment criteria. S2 to S5 are not implemented. |
 
 See [`docs/project-status.md`](docs/project-status.md) for the complete verified, unverified, and blocked boundary.
 
@@ -57,8 +58,8 @@ npm --prefix web install
 npm --prefix web run dev
 ```
 
-See [`web/README.md`](web/README.md) for the testnet-only Xaman and opt-in FDC
-configuration. The FDC job service uses the existing root scripts and local
+See [`web/README.md`](web/README.md) for the testnet-only Xaman, opt-in FDC, and
+optional local AI configuration. The FDC job service uses the existing root scripts and local
 throwaway Coston2 configuration; it is not a production backend or durable job
 queue.
 
@@ -89,6 +90,7 @@ queue.
 | [`docs/project-status.md`](docs/project-status.md) | Current truth, blockers, known issues, and next priorities. |
 | [`docs/issue-board.md`](docs/issue-board.md) | Task ownership, progress, and immediate execution order. |
 | [`docs/decisions.md`](docs/decisions.md) | Durable decisions and rationale. |
+| [`docs/ai/SKILLS.md`](docs/ai/SKILLS.md) | Local AI agent skills, output schemas, guardrails, and UK-law snapshot design. |
 | [`docs/reference/`](docs/reference/) | Detailed historical planning material; not automatically authoritative. |
 
 ## Public-repository safety
