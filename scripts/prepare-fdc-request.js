@@ -11,7 +11,12 @@
 
 const fs = require("fs");
 const path = require("path");
-const { encodeBytes32String, isAddress, Wallet } = require("ethers");
+const { encodeBytes32String } = require("ethers");
+const {
+  EVIDENCE_DIR,
+  latestEvidence,
+  resolveProofOwner,
+} = require("../lib/fdc-proof");
 require("dotenv").config();
 
 const BASE_URL =
@@ -24,36 +29,6 @@ const ROUTE = "/verifier/xrp/XRPPayment/prepareRequest";
 const ATTESTATION_TYPE = encodeBytes32String("XRPPayment");
 const SOURCE_ID = encodeBytes32String("testXRP");
 
-const EVIDENCE_DIR = path.join(__dirname, "..", "evidence");
-
-function latestXrplPayment() {
-  if (!fs.existsSync(EVIDENCE_DIR)) return null;
-  const files = fs
-    .readdirSync(EVIDENCE_DIR)
-    .filter((f) => f.startsWith("xrpl-payment-") && f.endsWith(".json"))
-    .map((f) => path.join(EVIDENCE_DIR, f))
-    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
-  if (!files.length) return null;
-  return { file: files[0], ...JSON.parse(fs.readFileSync(files[0], "utf8")) };
-}
-
-function resolveProofOwner() {
-  if (process.env.FDC_PROOF_OWNER) {
-    if (!isAddress(process.env.FDC_PROOF_OWNER)) {
-      throw new Error("FDC_PROOF_OWNER must be a 20-byte 0x… EVM address.");
-    }
-    return process.env.FDC_PROOF_OWNER;
-  }
-  // Default to the account that will pay for and submit the request, so the
-  // proof is owned by the same address that later calls the contract.
-  if (process.env.COSTON2_PRIVATE_KEY) {
-    return new Wallet(process.env.COSTON2_PRIVATE_KEY).address;
-  }
-  throw new Error(
-    "Set FDC_PROOF_OWNER to your public Coston2 address, or COSTON2_PRIVATE_KEY to derive it."
-  );
-}
-
 async function main() {
   const apiKey = process.env.FDC_VERIFIER_API_KEY;
   if (!apiKey) {
@@ -62,7 +37,7 @@ async function main() {
     );
   }
 
-  const latest = latestXrplPayment();
+  const latest = latestEvidence("xrpl-payment-");
   const rawHash = (process.argv[2] || process.env.XRPL_TX_HASH || latest?.txHash || "").trim();
   const txHash = rawHash.startsWith("0x") ? rawHash.slice(2) : rawHash;
   if (!/^[0-9a-fA-F]{64}$/.test(txHash)) {

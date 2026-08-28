@@ -1,21 +1,13 @@
 const fs = require("fs");
 const path = require("path");
 const { network, ethers } = require("hardhat");
-const { decodeProof, describeRevert } = require("../lib/fdc-proof");
-
-const EVIDENCE_DIR = path.join(__dirname, "..", "evidence");
+const {
+  EVIDENCE_DIR,
+  latestEvidence,
+  decodeProof,
+  describeRevert,
+} = require("../lib/fdc-proof");
 const STATUS = ["None", "Active", "PaidVerified", "OverdueVerified", "Disputed"];
-
-function latestProofFile() {
-  if (process.env.FDC_PROOF_FILE) return process.env.FDC_PROOF_FILE;
-  if (!fs.existsSync(EVIDENCE_DIR)) return null;
-  const files = fs
-    .readdirSync(EVIDENCE_DIR)
-    .filter((f) => f.startsWith("fdc-proof-") && f.endsWith(".json"))
-    .map((f) => path.join(EVIDENCE_DIR, f))
-    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
-  return files[0] || null;
-}
 
 async function main() {
   if (network.config.chainId !== 114) {
@@ -32,13 +24,17 @@ async function main() {
     throw new Error("Set AGREEMENT_ID to the agreement this proof belongs to.");
   }
 
-  const proofFile = latestProofFile();
-  if (!proofFile || !fs.existsSync(proofFile)) {
+  const evidence = process.env.FDC_PROOF_FILE
+    ? {
+        file: process.env.FDC_PROOF_FILE,
+        ...JSON.parse(fs.readFileSync(process.env.FDC_PROOF_FILE, "utf8")),
+      }
+    : latestEvidence("fdc-proof-");
+  if (!evidence) {
     throw new Error("No proof evidence found. Run `npm run fdc:proof` first.");
   }
-  const evidence = JSON.parse(fs.readFileSync(proofFile, "utf8"));
   if (!evidence.responseHex || !evidence.merkleProof) {
-    throw new Error(`${proofFile} does not contain responseHex and merkleProof.`);
+    throw new Error(`${evidence.file} does not contain responseHex and merkleProof.`);
   }
 
   const [submitter] = await ethers.getSigners();
@@ -52,7 +48,7 @@ async function main() {
   const shield = await ethers.getContractAt("LatePayShield", address, submitter);
   const agreement = await shield.getAgreement(agreementId);
 
-  console.log(`Proof file:   ${proofFile}`);
+  console.log(`Proof file:   ${evidence.file}`);
   console.log(`Contract:     ${address}`);
   console.log(`Agreement:    #${agreementId} (${STATUS[Number(agreement.status)]})`);
   console.log(`\n                      agreement                                                          proof`);
@@ -91,7 +87,7 @@ async function main() {
         votingRoundId: evidence.votingRoundId,
         submissionTransaction: tx.hash,
         blockNumber: receipt.blockNumber,
-        proofEvidenceFile: path.basename(proofFile),
+        proofEvidenceFile: path.basename(evidence.file),
         explorer: `https://coston2-explorer.flare.network/tx/${tx.hash}`,
       },
       null,
