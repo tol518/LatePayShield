@@ -30,14 +30,14 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 
 ## Immediate order
 
-1. Create a fresh agreement before its matching XRPL payment.
-2. Run `fdc:prepare` → `fdc:submit` → `fdc:proof` → `fdc:record` against it and retain the public transaction.
+1. Run `npm run create:agreement` with `XRPL_SUPPLIER_ADDRESS` set to `rUCR23Ys3TWFMqdNDzFehUjyxj8ZfUYo9V`.
+2. Run `npm run spike:xrpl` so the payment lands after the agreement, then `fdc:prepare` → `fdc:submit` → `fdc:proof` → `fdc:record`, and retain the public transaction.
 3. Implement the separate non-payment proof path.
 4. Start the evidence-focused frontend against the real proof shape and deployed address.
 
 `fdc:prepare` and `fdc:proof` are proven end to end and need no private credential.
-Everything from `fdc:submit` onward needs a funded throwaway `COSTON2_PRIVATE_KEY`,
-which is not in the repository, so submission has not been re-run.
+The Coston2 signer is funded and every command's inputs are validated, so nothing is
+blocked. The remaining steps all send real transactions and have not been run.
 
 No issue evidence may contain a Coston2 private key, XRPL seed, recovery phrase,
 verifier key other than the published public test key, or full `.env` content.

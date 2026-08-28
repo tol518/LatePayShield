@@ -31,6 +31,7 @@
     "check": "npm run compile && npm test",
     "deploy:coston2": "hardhat run scripts/deploy.js --network coston2",
     "deploy:check:coston2": "hardhat run scripts/check-coston2-deployment.js --network coston2",
+    "create:agreement": "hardhat run scripts/create-agreement.js --network coston2",
     "fdc:prepare": "node scripts/prepare-fdc-request.js",
     "fdc:submit": "hardhat run scripts/submit-fdc-request.js --network coston2",
     "fdc:proof": "hardhat run scripts/fetch-fdc-proof.js --network coston2",
