@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { network, ethers } = require("hardhat");
-const { decodeProof } = require("../lib/fdc-proof");
+const { decodeProof, describeRevert } = require("../lib/fdc-proof");
 
 const EVIDENCE_DIR = path.join(__dirname, "..", "evidence");
 const STATUS = ["None", "Active", "PaidVerified", "OverdueVerified", "Disputed"];
@@ -102,6 +102,10 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`\n❌ Proof submission failed: ${error.shortMessage || error.message}`);
+  console.error(
+    `\n❌ Proof submission failed: ${
+      describeRevert(error) || error.shortMessage || error.message
+    }`
+  );
   process.exitCode = 1;
 });
