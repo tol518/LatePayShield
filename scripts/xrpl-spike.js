@@ -20,6 +20,7 @@ const WSS = process.env.XRPL_WSS_URL || "wss://s.altnet.rippletest.net:51233";
 const INVOICE_REFERENCE = process.env.INVOICE_REFERENCE || "INV-2026-001";
 const DESTINATION_TAG = Number(process.env.DESTINATION_TAG || 2026001);
 const AMOUNT_DROPS = process.env.AMOUNT_DROPS || "2000000"; // 2 test XRP
+const SUPPLIER_ADDRESS = process.env.XRPL_SUPPLIER_ADDRESS;
 
 async function main() {
   if (!WSS.includes("altnet") && !WSS.includes("testnet")) {
@@ -31,18 +32,30 @@ async function main() {
   console.log(`Connected: ${WSS}`);
 
   try {
-    console.log("Funding supplier wallet from faucet…");
-    const { wallet: supplier } = await client.fundWallet();
+    // An agreement has to exist before the payment that satisfies it, so the
+    // destination must be known in advance. A fresh supplier is only funded
+    // when no existing one is named.
+    let destination = SUPPLIER_ADDRESS;
+    if (destination) {
+      if (!xrpl.isValidAddress(destination)) {
+        throw new Error(`XRPL_SUPPLIER_ADDRESS is not a valid XRPL address: ${destination}`);
+      }
+      console.log(`Paying existing supplier: ${destination}`);
+    } else {
+      console.log("Funding supplier wallet from faucet…");
+      const { wallet: supplier } = await client.fundWallet();
+      destination = supplier.address;
+    }
     console.log("Funding payer wallet from faucet…");
     const { wallet: payer } = await client.fundWallet();
 
-    console.log(`\nSupplier (destination): ${supplier.address}`);
+    console.log(`\nSupplier (destination): ${destination}`);
     console.log(`Payer    (source):      ${payer.address}`);
 
     const prepared = await client.autofill({
       TransactionType: "Payment",
       Account: payer.address,
-      Destination: supplier.address,
+      Destination: destination,
       Amount: AMOUNT_DROPS,
       DestinationTag: DESTINATION_TAG,
       Memos: [
@@ -75,7 +88,7 @@ async function main() {
       ledgerIndex,
       transactionResult: code,
       sourceAddress: payer.address,
-      destinationAddress: supplier.address,
+      destinationAddress: destination,
       amountDrops: AMOUNT_DROPS,
       destinationTag: DESTINATION_TAG,
       invoiceReference: INVOICE_REFERENCE,
@@ -94,7 +107,7 @@ async function main() {
     console.log(
       `\nNext: request an FDC XRPPayment attestation (type 0x08, source testXRP)\n` +
         `for transactionId ${txHash}, then confirm the returned receivingAddressHash\n` +
-        `matches standardAddressHash("${supplier.address}") from lib/canonical.js.`
+        `matches standardAddressHash("${destination}") from lib/canonical.js.`
     );
   } finally {
     await client.disconnect();

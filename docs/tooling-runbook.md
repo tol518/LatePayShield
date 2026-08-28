@@ -19,6 +19,7 @@ Swagger form, chat, issue, commit, or evidence file.
 | Inspect deployment and request transactions | Coston2 Explorer | <https://coston2-explorer.flare.network/> | Public transaction/contract URLs. The deployed LatePayShield contract is `0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1`. |
 | Track FDC round finalization | Flare Systems Explorer | `https://coston2-systems-explorer.flare.network/voting-round/<ROUND>?tab=fdc` | The relevant finalized voting round. |
 | Retrieve the finalized FDC proof/response | Project Hardhat script + Coston2 DA layer | `npm run fdc:proof` | The Merkle proof and ABI-encoded response, saved to `evidence/fdc-proof-<ROUND>-<XRPL_TX>.json`. It polls until the round finalizes, re-encodes the response to confirm it is byte-identical, and calls the live `FdcVerification` before saving. No API key is required. Swagger is at <https://ctn2-data-availability.flare.network/api-doc#/fdc/fdc_proof_by_request_round_create>. |
+| Create an agreement before the payment that satisfies it | Project Hardhat script | `npm run create:agreement` | The agreement ID and its committed terms, saved to `evidence/coston2-agreement-<id>.json`. It reads the current validated XRPL ledger as the evidence floor, so the matching payment must be sent afterwards. |
 | Submit a finalized proof to the agreement contract | Project Hardhat script | `AGREEMENT_ID=<id> npm run fdc:record` | The public Coston2 transaction that moves an agreement to `PaidVerified`, saved to `evidence/coston2-paid-agreement-<id>.json`. |
 | Confirm deployment has the expected live-network configuration | Project Hardhat script + public RPC | `npm run deploy:check:coston2` | Chain ID `114`, deployed bytecode, zero verifier override, and `nextAgreementId`. |
 
@@ -138,10 +139,11 @@ acceptable; never export a wallet that holds real funds.
   only to inspect public transactions and contracts.
 - The old XRPL payment `A0DA...ADF3565` proved the hash/FDC request path only. It
   predates any fresh agreement and cannot prove that agreement was paid.
-- A real `PaidVerified` result still requires: create an agreement first, send a
-  new matching XRPL payment afterward, obtain its new FDC proof, and submit that
-  proof with `AGREEMENT_ID=<id> npm run fdc:record`. No command creates the
-  agreement yet, so this is still blocked.
+- A real `PaidVerified` result still requires the steps in that exact order:
+  `create:agreement`, then `spike:xrpl`, then the proof commands, then
+  `AGREEMENT_ID=<id> npm run fdc:record`. Set `XRPL_SUPPLIER_ADDRESS` before the
+  first one, or `spike:xrpl` will fund a new supplier the agreement knows nothing
+  about.
 - A proof that `verifyXRPPayment` accepts can still be rejected by `LatePayShield`.
   The verifier only attests that the response is in the round's Merkle tree; the
   agreement's destination, amount, tag, ledger window, and deadline are checked
