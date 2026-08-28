@@ -1,0 +1,41 @@
+{
+  "capturedAt": "2026-08-28T09:20:00.000Z",
+  "purpose": "Establish how the live XRP verifier compares a payment against the requested amount, and confirm it refuses a non-payment request when a matching payment exists.",
+  "verifier": "https://fdc-verifiers-testnet.flare.network/verifier/xrp/XRPPaymentNonexistence/prepareRequest",
+  "windowUnderTest": {
+    "minimalBlockNumber": "20283755",
+    "deadlineBlockNumber": "20283755",
+    "deadlineTimestamp": "1787907000",
+    "destinationAddressHash": "0x4abeacf6f2ad7fbb211ba1b703aecc2edd2933e84039bcade6e6488d9ddbfb8f",
+    "destinationTag": "2026001",
+    "checkDestinationTag": true
+  },
+  "paymentInsideWindow": {
+    "txHash": "2A06F207BB92C296CBFE145EBD692C269A45DD298EF92FD18111EF821891CD36",
+    "ledgerIndex": 20283804,
+    "blockTimestamp": 1787906202,
+    "receivedAmount": "2000000",
+    "spentAmount": "2000012",
+    "destinationTag": 2026001
+  },
+  "amountSweep": [
+    { "amount": "1999998", "status": "INVALID: REFERENCED TRANSACTION EXISTS" },
+    { "amount": "1999999", "status": "INVALID: REFERENCED TRANSACTION EXISTS" },
+    { "amount": "2000000", "status": "INVALID: REFERENCED TRANSACTION EXISTS" },
+    { "amount": "2000001", "status": "VALID" },
+    { "amount": "2000011", "status": "VALID" },
+    { "amount": "2000012", "status": "VALID" }
+  ],
+  "tagControl": {
+    "note": "Same window and threshold with a tag no payment carries.",
+    "destinationTag": "9999999",
+    "amount": "1999999",
+    "status": "VALID"
+  },
+  "conclusions": [
+    "The verifier refuses a non-payment request when a qualifying payment exists in the window. The mirror case holds.",
+    "The destination tag is genuinely part of the match criteria: changing it alone flips the same window to VALID.",
+    "The match is receivedAmount >= amount, not receivedAmount > amount as IXRPPaymentNonexistence documents. The boundary sits between 2000000 and 2000001 for a payment that received exactly 2000000, and spentAmount 2000012 is not the compared value.",
+    "LatePayShield pins the request to expectedDrops - 1. Against >= semantics that is safe, because a payment of exactly expectedDrops still blocks an overdue verdict, but it is one drop wider than intended: a payment of exactly expectedDrops - 1 also blocks it, leaving that agreement recordable as neither paid nor overdue."
+  ]
+}
