@@ -1,6 +1,6 @@
 # Testnet Tooling Runbook
 
-**Last verified:** 27 August 2026. This is the handoff page for a developer or
+**Last verified:** 28 August 2026. This is the handoff page for a developer or
 agent repeating the XRPL → FDC → Coston2 work. Use only throwaway testnet wallets.
 Never paste a private key, seed phrase, recovery phrase, or `.env` file into a
 Swagger form, chat, issue, commit, or evidence file.
@@ -139,11 +139,14 @@ acceptable; never export a wallet that holds real funds.
   only to inspect public transactions and contracts.
 - The old XRPL payment `A0DA...ADF3565` proved the hash/FDC request path only. It
   predates any fresh agreement and cannot prove that agreement was paid.
-- A real `PaidVerified` result still requires the steps in that exact order:
+- A real `PaidVerified` result needs the steps in that exact order:
   `create:agreement`, then `spike:xrpl`, then the proof commands, then
   `AGREEMENT_ID=<id> npm run fdc:record`. Set `XRPL_SUPPLIER_ADDRESS` before the
-  first one, or `spike:xrpl` will fund a new supplier the agreement knows nothing
-  about.
+  first one, or `spike:xrpl` funds a new supplier the agreement knows nothing about
+  and the proof fails on `DestinationMismatch`. This sequence produced agreement `2`
+  on 28 August 2026.
+- In PowerShell the last step is `$env:AGREEMENT_ID=2; npm run fdc:record`. The
+  `VAR=value command` form is POSIX only and fails on Windows.
 - A proof that `verifyXRPPayment` accepts can still be rejected by `LatePayShield`.
   The verifier only attests that the response is in the round's Merkle tree; the
   agreement's destination, amount, tag, ledger window, and deadline are checked

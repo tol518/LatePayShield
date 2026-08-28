@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-08-28T08:39:48.626Z",
+  "network": "flare-testnet-coston2",
+  "chainId": 114,
+  "contractAddress": "0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1",
+  "agreementId": 2,
+  "status": "PaidVerified",
+  "xrplTxHash": "0x2a06f207bb92c296cbfe145ebd692c269a45dd298ef92fd18111ef821891cd36",
+  "evidenceId": "0xdaa95464b8e5ad9bfc03f9036189093d99bd03d4da7274f8b563fb55400c18f8",
+  "votingRoundId": 1438624,
+  "submissionTransaction": "0xc67548dc7b6819319a8c30300c60fd0c02bc9a2baa19c68e93121992e5ea423e",
+  "blockNumber": 34585539,
+  "proofEvidenceFile": "fdc-proof-1438624-2A06F207BB92C296CBFE145EBD692C269A45DD298EF92FD18111EF821891CD36.json",
+  "explorer": "https://coston2-explorer.flare.network/tx/0xc67548dc7b6819319a8c30300c60fd0c02bc9a2baa19c68e93121992e5ea423e"
+}
