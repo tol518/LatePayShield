@@ -115,7 +115,7 @@ The current contract does not inspect the XRPL memo or `invoiceNumber`. The comm
 
 `recordVerifiedNonPayment` requires an active agreement and an EVM time after `dueAt`, then verifies the FDC proof and pins its request body:
 
-- `amount == expectedDrops - 1`, because the attestation search is strictly greater than the requested amount;
+- `amount == expectedDrops - 1`. The interface documents the search as strictly greater than the requested amount, but the live verifier matches at or above it, so this bound is one drop wider than intended. It stays safe against a false overdue and is recorded as a known issue;
 - destination address hash equals the agreement value;
 - destination-tag checking is enabled and the tag matches;
 - minimal ledger is no later than the creator-supplied `startLedger`;

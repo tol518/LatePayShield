@@ -172,6 +172,12 @@ fails on `DestinationMismatch`.
 
 ### 4. Verify the real overdue path — completed
 
+Both directions are covered. The unpaid case was run end to end as agreement `3`. The
+mirror case, a destination that was paid, was probed against agreement `2`'s real
+window and the verifier refused the request. Changing only the destination tag in that
+same window flips it back to valid, which confirms the tag is genuinely part of the
+match rather than being carried along unused.
+
 Run on 28 August 2026 as agreement `3`. It needs a destination that genuinely
 receives nothing, so a fresh XRPL address was generated and never paid.
 
@@ -189,13 +195,29 @@ The window came back as ledgers `20284260` to `20284354` exclusive, closing at
 agreement exactly: `minimalBlockNumber` equal to `startLedger`, `deadlineTimestamp`
 equal to `dueAt`, and the threshold at `1999999`.
 
-That threshold is the reason this branch needed real verification rather than mock
-coverage. The attestation searches for a payment **strictly greater than** the value
-requested, so asking for the full `2000000` would let a payment of exactly `2000000`
-fall outside the search. The verifier would truthfully report nothing found and the
-contract would record a false overdue against someone who paid in full.
-`recordVerifiedNonPayment` enforces the subtraction itself rather than trusting the
-requester.
+### The threshold behaves differently from the interface documentation
+
+`IXRPPaymentNonexistence` states the attestation searches for a payment **strictly
+greater than** the requested amount. Probing the live verifier against agreement `2`'s
+window, which contains a payment of exactly 2,000,000 drops, shows otherwise:
+
+| Requested amount | Verifier |
+|---|---|
+| `1999998` | refused, transaction exists |
+| `1999999` | refused, transaction exists |
+| `2000000` | refused, transaction exists |
+| `2000001` | valid, no match |
+| `2000012` | valid, no match |
+
+The boundary sits between `2000000` and `2000001`, so the match is
+`receivedAmount >= amount`. `spentAmount` of `2000012` is not the compared value.
+
+`recordVerifiedNonPayment` pins the request to `expectedDrops - 1`. Against these
+semantics that is still safe, because a payment of exactly `expectedDrops` continues
+to block an overdue verdict, but it is one drop wider than intended: a payment of
+exactly `expectedDrops - 1` also blocks it. Such an agreement can be recorded as
+neither paid nor overdue, and its only exit is `markDisputed`. The full sweep is in
+`evidence/fdc-nonexistence-threshold-probe.json`.
 
 `fdc:prepare:overdue` refuses to build a request while the deadline is still open.
 This was confirmed by running it against agreement `3` five minutes early.
@@ -207,7 +229,6 @@ recorded ledger range. It does not prove the payer never paid by any other means
 ## Required next integration tests
 
 1. Exercise network pending, timeout, rejection, and retry behavior through the future application.
-2. Confirm that a destination which *was* paid produces a rejected non-payment request, rather than only confirming the unpaid case.
 
 ## Three-minute demo
 
