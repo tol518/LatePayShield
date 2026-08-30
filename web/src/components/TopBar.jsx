@@ -1,33 +1,22 @@
-import { ShieldCheck } from './Icons.jsx';
-
-const NAV = [
-  { href: '#prepare', label: 'Prepare' },
-  { href: '#registry', label: 'Live state' },
-  { href: '#how-it-works', label: 'How it works' },
-  { href: '#evidence', label: 'Evidence' },
-  { href: '#statuses', label: 'Statuses' },
-];
+import { InfoCircle, ShieldCheck } from './Icons.jsx';
 
 export default function TopBar() {
   return (
     <header className="topbar">
-      <div className="shell topbar__inner">
-        <a className="brand" href="/">
-          <ShieldCheck className="brand__mark" />
+      <div className="topbar__inner">
+        <a className="brand mobile-brand" href="#main">
+          <span className="brand__mark-wrap"><ShieldCheck className="brand__mark" /></span>
           LatePay Shield
         </a>
-
-        <nav className="topbar__nav" aria-label="Primary">
-          {NAV.map((item) => (
-            <a key={item.href} href={item.href}>{item.label}</a>
-          ))}
-        </nav>
-
-        {/* Environment context must be visible without scrolling on every screen. */}
         <p className="env-label">
-          <span className="env-label__dot" aria-hidden="true" />
+          <InfoCircle />
           XRPL Testnet · Prototype
         </p>
+        <span className="topbar__divider" aria-hidden="true" />
+        <div className="topbar__identity" aria-label="Current workspace">
+          <span className="topbar__avatar" aria-hidden="true">LP</span>
+          <span><strong>LatePay workspace</strong><small>Local prototype</small></span>
+        </div>
       </div>
     </header>
   );

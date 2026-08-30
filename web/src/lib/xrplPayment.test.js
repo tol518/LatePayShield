@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateXrplPayment } from './xrplPayment.js';
+import {
+  normalizeXrplTransactionHash,
+  validateXrplPayment,
+  waitForValidatedXrplPayment,
+} from './xrplPayment.js';
 
 const payment = {
   Account: 'rPayer',
@@ -35,4 +39,46 @@ test('rejects a transaction sent to a different destination', () => {
     () => validateXrplPayment(payment, { ...criteria, destination: 'rDifferentDestination' }),
     /destination does not match/,
   );
+});
+
+test('normalizes the transaction id returned by Xaman', () => {
+  assert.equal(
+    normalizeXrplTransactionHash(`  0x${payment.hash.toLowerCase()}  `),
+    payment.hash,
+  );
+});
+
+test('keeps polling while a newly submitted Xaman payment is not indexed', async () => {
+  let calls = 0;
+  const waits = [];
+  const result = await waitForValidatedXrplPayment(payment.hash, criteria, {
+    attempts: 4,
+    intervalMs: 3_000,
+    fetchPayment: async () => {
+      calls += 1;
+      if (calls < 3) throw new Error('That transaction was not found on XRPL Testnet.');
+      return { hash: payment.hash };
+    },
+    wait: async (duration) => { waits.push(duration); },
+  });
+
+  assert.equal(result.hash, payment.hash);
+  assert.equal(calls, 3);
+  assert.deepEqual(waits, [3_000, 3_000]);
+});
+
+test('does not retry a permanent payment mismatch', async () => {
+  let calls = 0;
+  await assert.rejects(
+    waitForValidatedXrplPayment(payment.hash, criteria, {
+      attempts: 4,
+      fetchPayment: async () => {
+        calls += 1;
+        throw new Error('The payment destination does not match this agreement.');
+      },
+      wait: async () => {},
+    }),
+    /destination does not match/,
+  );
+  assert.equal(calls, 1);
 });

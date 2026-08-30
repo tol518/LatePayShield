@@ -1,4 +1,14 @@
 const RIPPLE_EPOCH_UNIX_OFFSET = 946684800;
+export const XAMAN_VALIDATION_ATTEMPTS = 45;
+export const XAMAN_VALIDATION_INTERVAL_MS = 3_000;
+
+export function normalizeXrplTransactionHash(value) {
+  return String(value ?? '').trim().replace(/^0x/i, '').toUpperCase();
+}
+
+export function isPendingXrplPaymentError(error) {
+  return /not found|not validated/i.test(error?.message ?? String(error));
+}
 
 function transactionBody(result) {
   return result.tx_json ?? result.tx ?? result;
@@ -46,7 +56,7 @@ export function validateXrplPayment(result, criteria) {
 
 /** Read one transaction from the public XRPL Testnet JSON-RPC endpoint. */
 export async function fetchAndValidateXrplPayment(hash, criteria) {
-  const normalizedHash = hash.trim().replace(/^0x/i, '').toUpperCase();
+  const normalizedHash = normalizeXrplTransactionHash(hash);
   if (!/^[A-F0-9]{64}$/.test(normalizedHash)) {
     throw new Error('Enter the 64-character XRPL transaction hash.');
   }
@@ -64,4 +74,26 @@ export async function fetchAndValidateXrplPayment(hash, criteria) {
   }
 
   return validateXrplPayment(payload.result, { ...criteria, hash: normalizedHash });
+}
+
+/** Keep checking a newly submitted Xaman payment while Testnet indexes it. */
+export async function waitForValidatedXrplPayment(
+  hash,
+  criteria,
+  {
+    attempts = XAMAN_VALIDATION_ATTEMPTS,
+    intervalMs = XAMAN_VALIDATION_INTERVAL_MS,
+    fetchPayment = fetchAndValidateXrplPayment,
+    wait = (duration) => new Promise((resolve) => window.setTimeout(resolve, duration)),
+  } = {},
+) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await fetchPayment(hash, criteria);
+    } catch (error) {
+      if (!isPendingXrplPaymentError(error) || attempt === attempts - 1) throw error;
+      await wait(intervalMs);
+    }
+  }
+  throw new Error('XRPL Testnet validation did not complete.');
 }

@@ -7,6 +7,12 @@ import { formatDrops, shortenId } from '../lib/format.js';
 import { walletErrorMessage } from '../lib/walletErrors.js';
 import PaymentJourney from './PaymentJourney.jsx';
 import { savePaymentDestination } from '../lib/paymentInstructions.js';
+import { buildPayerLink } from '../lib/payerLink.js';
+import {
+  createXamanWalletConnection,
+  fetchXamanWalletConnectionStatus,
+  fetchXrplAgreementDefaults,
+} from '../lib/xamanPayment.js';
 
 function localDateTime(daysFromNow = 7) {
   const date = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
@@ -69,6 +75,32 @@ export default function AgreementCreator({ onCreated, suggestions }) {
   const [phase, setPhase] = useState('editing');
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [xrplDefaultsPhase, setXrplDefaultsPhase] = useState('loading');
+  const [xrplSetupError, setXrplSetupError] = useState('');
+  const [xamanConnection, setXamanConnection] = useState(null);
+  const [xamanConnectionPhase, setXamanConnectionPhase] = useState('idle');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchXrplAgreementDefaults()
+      .then((defaults) => {
+        if (cancelled) return;
+        setForm((current) => ({
+          ...current,
+          destinationTag: current.destinationTag || String(defaults.destinationTag),
+          startLedger: current.startLedger || String(defaults.startLedger),
+        }));
+        setXrplDefaultsPhase('ready');
+      })
+      .catch((defaultsError) => {
+        if (cancelled) return;
+        setXrplDefaultsPhase('error');
+        setXrplSetupError(defaultsError?.message ?? 'Automatic XRPL payment details could not be prepared.');
+      });
+
+    return () => { cancelled = true; };
+  }, []);
 
   /* Suggested values arrive from the optional local assistant and land in the
    * same editable fields a user types into. They are merged, never applied as a
@@ -120,6 +152,57 @@ export default function AgreementCreator({ onCreated, suggestions }) {
       setPhase('review');
     }
   }
+
+  async function connectXamanWallet() {
+    setXamanConnectionPhase('creating');
+    setXrplSetupError('');
+    try {
+      const connection = await createXamanWalletConnection();
+      setXamanConnection(connection);
+      setXamanConnectionPhase('waiting');
+    } catch (connectionError) {
+      setXrplSetupError(connectionError?.message ?? 'The Xaman wallet request could not be created.');
+      setXamanConnectionPhase('error');
+    }
+  }
+
+  useEffect(() => {
+    if (!xamanConnection?.id || ['signed', 'expired', 'cancelled'].includes(xamanConnectionPhase)) {
+      return undefined;
+    }
+    let cancelled = false;
+
+    async function refreshConnection() {
+      try {
+        const status = await fetchXamanWalletConnectionStatus(xamanConnection.id);
+        if (cancelled) return;
+        setXamanConnection(status);
+        const nextPhase = status.status === 'waiting' && status.opened ? 'opened' : status.status;
+        setXamanConnectionPhase(nextPhase);
+        if (status.status === 'signed') {
+          if (!status.account) throw new Error('Xaman approved the request but did not return an XRPL address.');
+          setForm((current) => ({ ...current, xrplDestination: status.account }));
+          setReview(null);
+          setConfirmed(false);
+          setResult(null);
+          setError('');
+          setPhase('editing');
+        }
+      } catch (connectionError) {
+        if (!cancelled) {
+          setXrplSetupError(connectionError?.message ?? 'The Xaman wallet status could not be read.');
+          setXamanConnectionPhase('error');
+        }
+      }
+    }
+
+    void refreshConnection();
+    const timer = window.setInterval(refreshConnection, 2_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [xamanConnection?.id, xamanConnectionPhase]);
 
   async function createAgreement() {
     if (!review || !confirmed || !wallet) return;
@@ -175,6 +258,13 @@ export default function AgreementCreator({ onCreated, suggestions }) {
 
             <fieldset disabled={busy || phase === 'created'}>
               <legend>Payment criteria</legend>
+              <XrplWalletSetup
+                connection={xamanConnection}
+                connectionPhase={xamanConnectionPhase}
+                defaultsPhase={xrplDefaultsPhase}
+                error={xrplSetupError}
+                onConnect={connectXamanWallet}
+              />
               <div className="form-grid">
                 <Field
                   className="field--wide"
@@ -257,6 +347,61 @@ export default function AgreementCreator({ onCreated, suggestions }) {
   );
 }
 
+function XrplWalletSetup({ connection, connectionPhase, defaultsPhase, error, onConnect }) {
+  const awaitingApproval = connection && !['signed', 'expired', 'cancelled', 'error'].includes(connectionPhase);
+
+  return (
+    <div className="xaman-panel xrpl-wallet-setup" aria-live="polite">
+      <div className="xaman-panel__head">
+        <div>
+          <strong>Supplier payment wallet</strong>
+          <p>Connect Xaman to fill the public receiving address. LatePay Shield never receives your secret.</p>
+        </div>
+        <span className="chip chip--testnet">Testnet</span>
+      </div>
+
+      {defaultsPhase === 'loading' ? (
+        <p className="xaman-status"><Progress className="is-spinning" />Preparing ledger and payment tag…</p>
+      ) : null}
+      {defaultsPhase === 'ready' ? (
+        <p className="xaman-status xaman-status--signed"><CheckCircle />Ledger and destination tag generated automatically.</p>
+      ) : null}
+
+      {!connection && (
+        <button className="btn btn--primary xaman-pay-button" type="button" onClick={onConnect} disabled={connectionPhase === 'creating'}>
+          {connectionPhase === 'creating' ? <Progress className="is-spinning" /> : <CheckCircle />}
+          {connectionPhase === 'creating' ? 'Preparing Xaman…' : 'Connect supplier Xaman wallet'}
+        </button>
+      )}
+
+      {awaitingApproval ? (
+        <div className="xaman-request">
+          <img src={connection.qrPng} alt="QR code for this Xaman wallet connection" />
+          <div>
+            <p className="xaman-status">
+              <Progress className="is-spinning" />
+              {connectionPhase === 'opened' ? 'Connection opened in Xaman…' : 'Waiting for wallet approval…'}
+            </p>
+            <a className="btn btn--quiet" href={connection.deepLink} target="_blank" rel="noreferrer">Open Xaman</a>
+            <p className="xaman-expiry">Request expires {new Date(connection.expiresAt).toLocaleTimeString('en-GB')}.</p>
+          </div>
+        </div>
+      ) : null}
+
+      {connectionPhase === 'signed' ? (
+        <p className="xaman-status xaman-status--signed">
+          <CheckCircle />Receiving address connected: <span className="mono">{shortenId(connection.account, 8, 6)}</span>
+        </p>
+      ) : null}
+
+      {['expired', 'cancelled', 'error'].includes(connectionPhase) ? (
+        <button className="btn btn--quiet xaman-pay-button" type="button" onClick={onConnect}>Create a new Xaman request</button>
+      ) : null}
+      {error ? <div className="form-error" role="alert"><Warning /><p>{error}</p></div> : null}
+    </div>
+  );
+}
+
 function Field({ label, help, className = '', ...props }) {
   const id = `agreement-${props.name}`;
   const helpId = help ? `${id}-help` : undefined;
@@ -316,12 +461,12 @@ function ReviewState({ review, wallet, confirmed, setConfirmed, busy, phase, onC
       <div className="form-actions">
         {!wallet ? (
           <button className="btn btn--primary" type="button" onClick={onConnect} disabled={!confirmed || busy}>
-            {phase === 'connecting' ? <Progress /> : <CheckCircle />}
+            {phase === 'connecting' ? <Progress className="is-spinning" /> : <CheckCircle />}
             {phase === 'connecting' ? 'Connecting wallet…' : 'Connect Coston2 wallet'}
           </button>
         ) : (
           <button className="btn btn--primary" type="button" onClick={onCreate} disabled={!confirmed || busy}>
-            {phase === 'submitting' ? <Progress /> : <CheckCircle />}
+            {phase === 'submitting' ? <Progress className="is-spinning" /> : <CheckCircle />}
             {phase === 'submitting' ? 'Waiting for confirmation…' : 'Register agreement'}
           </button>
         )}
@@ -345,7 +490,76 @@ function CreatedState({ result, review, wallet }) {
         <dt>Transaction</dt>
         <dd className="mono"><a href={txUrl(result.transactionHash)} target="_blank" rel="noreferrer">{shortenId(result.transactionHash, 10, 8)}</a></dd>
       </dl>
-      <PaymentJourney agreementId={result.agreementId} review={review} />
+      <PayerHandoff
+        agreementId={result.agreementId}
+        destination={review.canonical.xrplDestination}
+        review={review}
+      />
+    </div>
+  );
+}
+
+/* The point where the supplier stops and the payer starts.
+ *
+ * Paying is the *other* party's act, so the default ending for this screen is a
+ * link to send, not a QR to scan. Offering the QR inline invited the supplier
+ * to pay their own invoice with the Xaman account they had just connected as
+ * the receiving address, which XRPL rejects as temREDUNDANT — see
+ * docs/xaman-payment-task-handoff.md. Paying from here is still reachable,
+ * because a one-operator demo needs it, but it is now a labelled detour rather
+ * than the path of least resistance. */
+function PayerHandoff({ agreementId, destination, review }) {
+  const [link, setLink] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setLink(buildPayerLink(agreementId, destination, window.location.href));
+  }, [agreementId, destination]);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+    } catch {
+      // Clipboard access can be refused; the link stays selectable either way.
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="payer-handoff">
+      <div className="payment-step">
+        <div className="payment-step__head"><span>1</span><h4>Send this to your payer</h4></div>
+        <p className="payment-step__copy">
+          Your payer opens this link, confirms the terms, and pays from their own wallet. The link
+          carries the receiving address because the contract stores only its hash — it is checked
+          against that hash before it can be used, so a tampered link cannot redirect a payment.
+        </p>
+        <div className="payer-handoff__link">
+          <input
+            className="transaction-input mono"
+            aria-label="Payment link for your payer"
+            value={link}
+            readOnly
+            onFocus={(event) => event.target.select()}
+          />
+          <button className="btn btn--primary" type="button" onClick={copyLink} disabled={!link}>
+            <CheckCircle />{copied ? 'Copied' : 'Copy link'}
+          </button>
+        </div>
+      </div>
+
+      <details className="payer-handoff__demo">
+        <summary>Pay it yourself, as a test payer</summary>
+        <p className="assistant-note assistant-note--attention">
+          <Warning />
+          Demo shortcut. You are acting as the payer now, not the supplier. In Xaman, sign with a
+          different funded Testnet account from the receiving address{' '}
+          <span className="mono">{shortenId(destination)}</span> — XRPL rejects a payment from an
+          account to itself.
+        </p>
+        <PaymentJourney agreementId={agreementId} review={review} />
+      </details>
     </div>
   );
 }

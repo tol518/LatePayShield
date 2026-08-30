@@ -60,6 +60,19 @@ re-encoding, leaf sensitivity to a single altered field, agreement of the respon
 - local chain ID `31337` permits the test seam;
 - chain ID `114` rejects a non-zero override for any deployer.
 
+### Web application and local AI
+
+`cd web && npm test` now runs 19 focused executions. Five document-parser
+fixtures cover selectable PDF text, ordinary XML, namespace-qualified UBL,
+currency attributes, file-size/type boundaries, malformed PDFs, and rejection
+of XML DTD/entity declarations. The existing 11 S1 validator executions and
+three payment/browser-library executions remain green. `npm run build` also
+passes. A synthetic UBL invoice was additionally sent through the running
+loopback API and configured `mlx-community/Qwen3-8B-4bit` model: it returned a
+schema-valid extraction with the expected invoice number, due date, and GBP
+currency. This is a local smoke test, not a committed model fixture suite or a
+recorded browser run.
+
 ## GitHub Actions
 
 The `CI` workflow runs on pushes to `main`, pull requests, and manual dispatch using Node 24:
@@ -83,7 +96,7 @@ The `main` workflow for merge commit `e459042` completed successfully on 25 Augu
 | Agreement lifecycle | Live Coston2 agreement | Creation `0xf25f...43df`, agreement `2`, start ledger `20283755`, deadline `1787913245` | Created before its payment, so the evidence window is honest rather than back-fitted. |
 | FDC non-payment proof | Real proof accepted by the contract | Coston2 request `0xbcfb...7493`; voting round `1438645`; submission `0xab0d...068e` | Agreement `3` reads back as `OverdueVerified` with evidence ID `0x6881...14c1`. Searched ledgers `20284260` to `20284354` exclusive, above `1999999` drops, destination tag `2026002`. |
 | Additional paid-path record | Recorded live testnet evidence | Agreement `4`; XRPL `397A2598...B264B47A`; round `1438816`; Coston2 `0xf7ba...e781` | `evidence/coston2-paid-agreement-4.json` records `PaidVerified` and evidence ID `0x795b...ee7c`. |
-| Local web application | Local tests and production build | `web/` (`npm test`, `npm run build`) | React UI and loopback API compile and focused payment tests pass. The specific browser-triggered FDC job has not been independently recorded as a complete GUI run. |
+| Local web application | Local tests, production build, and local-model smoke | `web/` (`npm test`, `npm run build`); synthetic UBL request through `POST /api/ai/extractions` | React UI and loopback API compile; 19 focused executions pass, including PDF/XML/UBL parsing. A UBL request returned a schema-valid local-model extraction. Rendered browser QA and the browser-triggered FDC job have not been independently recorded as complete GUI runs. |
 | FTSO | Optional/planned | None | Not implemented. |
 
 ## External verification runbook

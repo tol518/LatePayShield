@@ -13,7 +13,7 @@
  * after this module's imports are evaluated.
  */
 
-const DEFAULT_TIMEOUT_MS = 90_000;
+const DEFAULT_TIMEOUT_MS = 180_000;
 const DEFAULT_MODEL = 'mlx-community/Qwen3-8B-4bit';
 
 function positiveInteger(value, fallback) {

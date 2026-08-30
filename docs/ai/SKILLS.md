@@ -6,6 +6,8 @@ behind `AI_ASSISTANT_ENABLED`. S2 to S5 remain specification only.
 **Verified against:** `mlx-community/Qwen3-8B-4bit` on an operator-hosted MLX server over a private network.
 **Owning documents:** [`AGENTS.md`](../../AGENTS.md), [`docs/project-context.md`](../project-context.md), [`docs/decisions.md`](../decisions.md) (D-003).
 
+Current local-host operational diagnosis: [`mlx-server-memory-diagnosis.md`](mlx-server-memory-diagnosis.md).
+
 This file is the capability contract for the local model. It defines what the
 agent may do, what it must never do, the exact output shapes it must produce,
 and how it stays current on UK late-payment law without ever calling the network
@@ -48,7 +50,7 @@ mis-add a number, or agree with a leading question. Therefore:
 |---|---|
 | Location | Local process on the operator's machine only. |
 | Network at inference | **None.** The model process must not have outbound access. |
-| Inputs allowed | Invoice text the user pasted or uploaded, confirmed terms, on-chain/XRPL identifiers the application already holds, and the UK law snapshot (§7). |
+| Inputs allowed | Invoice text the user pasted, or text extracted in memory from an explicitly selected PDF, XML, or UBL invoice, confirmed terms, on-chain/XRPL identifiers the application already holds, and the UK law snapshot (§7). |
 | Inputs forbidden | `.env` contents, `COSTON2_PRIVATE_KEY`, XRPL seeds, recovery phrases, verifier API keys, and any file outside the explicitly passed context. |
 | Retention | Invoice text is held for the duration of the request. It is never written to `evidence/`, never committed, and never sent on-chain. |
 | Logging | Log prompt/response metadata (token counts, latency, schema pass/fail) — never the invoice body, never personal data. |
@@ -56,6 +58,18 @@ mis-add a number, or agree with a leading question. Therefore:
 
 The core lifecycle must work with the model switched off entirely (D-003).
 Ship the manual path first; the agent is an accelerant, never a dependency.
+
+### Document preprocessing for S1
+
+File parsing is deterministic application code, not a new model capability.
+The loopback service accepts one PDF, XML, or UBL file up to 10 MB. Searchable
+PDFs are limited to 50 pages and converted to text; image-only PDFs are rejected
+with an instruction to run OCR or paste text. XML/UBL is required to be
+well-formed UTF-8, has namespace prefixes removed for readability, and is
+flattened into labelled text while retaining element values and attributes.
+DTD and entity declarations are rejected. No uploaded bytes or extracted text
+are written to disk, evidence, or logs. The final extracted text remains subject
+to the same 25,000-character limit and all S1 prompt/schema rules below.
 
 ---
 
@@ -73,7 +87,8 @@ Exactly five skills. Anything outside this list is out of scope and must be refu
 
 ### S1 — Invoice term extraction
 
-Read unstructured invoice text and propose candidate values for the canonical
+Read unstructured invoice text, whether pasted or deterministically extracted
+from a supported document, and propose candidate values for the canonical
 terms. The field names and order are fixed by `lib/canonical.js` `FIELD_ORDER`:
 
 ```text
@@ -513,6 +528,7 @@ weights. A local 8B model's recollection of UK statute is not a source.
 | `top_p` | `0.9` | |
 | Context | Sufficient for invoice text plus the snapshot facts relevant to the question — pass only the relevant facts, not the whole snapshot. | |
 | Max output tokens | Bounded per skill; a truncated JSON response is a failure, not a partial success. | |
+| Request timeout | `180000` ms by default; override with `LOCAL_LLM_TIMEOUT_MS` for slower local hardware. | |
 | Stop / format | Structured-output or JSON mode where the runner supports it; schema validation regardless. | |
 | Retries | One retry on schema failure with the validation error appended. Second failure → fall back to manual entry. | |
 | Seed | Fixed where the runner supports it, so demo behaviour is reproducible. | |

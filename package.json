@@ -26,6 +26,7 @@
     "xrpl": "^5.1.0"
   },
   "scripts": {
+    "dev": "npm --prefix web run dev",
     "compile": "hardhat compile",
     "test": "hardhat test && npm run test:override-guard",
     "check": "npm run compile && npm test",

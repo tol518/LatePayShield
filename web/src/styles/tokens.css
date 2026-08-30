@@ -3,17 +3,17 @@
 
 :root {
   /* Colour roles */
-  --canvas: #f7f8fa;
+  --canvas: #f5f8fc;
   --surface: #ffffff;
-  --surface-quiet: #f2f4f7;
-  --border: #e1e5ea;
-  --border-strong: #cfd6de;
-  --ink: #10273f;
-  --muted: #566977;
-  --primary: #1f5fcc;
-  --primary-ink: #17469a;
-  --primary-wash: #eef3fd;
-  --primary-wash-border: #d3e0f8;
+  --surface-quiet: #f4f7fb;
+  --border: #dfe6ef;
+  --border-strong: #cbd6e3;
+  --ink: #0b1f3a;
+  --muted: #52657d;
+  --primary: #1164e8;
+  --primary-ink: #0b4fbd;
+  --primary-wash: #edf5ff;
+  --primary-wash-border: #c9ddfb;
   --positive: #1c7048;
   --positive-wash: #eaf5ef;
   --positive-wash-border: #c9e5d6;
@@ -23,9 +23,9 @@
   --danger: #a8291f;
   --danger-wash: #fdeeec;
   --danger-wash-border: #f6d3ce;
-  --testnet-ink: #3f4c7a;
-  --testnet-wash: #eef0f8;
-  --testnet-wash-border: #d3d8ec;
+  --testnet-ink: #0b56c8;
+  --testnet-wash: #edf5ff;
+  --testnet-wash-border: #c8dcfb;
 
   /* 8 px spacing scale */
   --s1: 8px;
@@ -36,8 +36,8 @@
   --s6: 48px;
 
   /* Shape */
-  --radius-card: 12px;
-  --radius-control: 8px;
+  --radius-card: 10px;
+  --radius-control: 7px;
 
   /* Type */
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;

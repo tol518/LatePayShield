@@ -107,9 +107,16 @@ local testnet prototype.
 ## Enable the local AI assistant
 
 Optional, and off by default. Skill S1 of [`../docs/ai/SKILLS.md`](../docs/ai/SKILLS.md)
-reads pasted invoice text and proposes the descriptive terms it can quote from
-the document. The agreement form is complete without it: keep it switched off
-and nothing in the journey changes.
+reads pasted invoice text or a searchable PDF, XML, or UBL invoice and proposes
+the descriptive terms it can quote from the resulting text. The agreement form
+is complete without it: keep it switched off and nothing in the journey changes.
+
+Uploads are parsed by the loopback service and held in memory for that request
+only. Files are limited to 10 MB; PDFs are limited to 50 pages and must contain
+selectable text. Run OCR on a scanned/image-only PDF before uploading it. XML
+and UBL must be well-formed UTF-8; DTD and entity declarations are rejected.
+After parsing, the existing 25,000-character S1 limit and every prompt/schema
+guard still apply.
 
 Run any OpenAI-compatible server on the machine hosting the model — MLX
 (`mlx_lm.server`), Ollama, llama.cpp, or LM Studio all expose the required
@@ -120,7 +127,7 @@ Run any OpenAI-compatible server on the machine hosting the model — MLX
 AI_ASSISTANT_ENABLED=true
 LOCAL_LLM_BASE_URL=http://127.0.0.1:8080/v1
 LOCAL_LLM_MODEL=mlx-community/Qwen3-8B-4bit
-LOCAL_LLM_TIMEOUT_MS=90000
+LOCAL_LLM_TIMEOUT_MS=180000
 ```
 
 If the model runs on a different machine on your own private network, put that
@@ -137,12 +144,13 @@ Restart `npm run dev`. What the service guarantees, from
   carries the validation error back to the model; a second failure means manual
   entry.
 - **Every suggestion is quoted.** A value the model cannot support with a
-  verbatim span of the pasted document is dropped, with a warning naming it.
+  verbatim span of the pasted or locally extracted document text is dropped,
+  with a warning naming it.
 - **Nothing is confirmed.** Suggestions land in the same editable fields you
   would type into, and the agreement is registered only from what you confirm.
 - **No currency conversion.** The invoice total is shown for reference; the XRP
   amount is always yours to enter.
-- **Pasted text is quoted material, not instruction.** A document that tries to
+- **Document text is quoted material, not instruction.** A document that tries to
   direct the model produces a refusal.
 - **Nothing is retained.** The text lives for the duration of the request. The
   service log records model name, finish reason, token counts, and latency —
@@ -164,8 +172,8 @@ in testing. The button says so, and the rest of the page stays usable.
 | `src/lib/xamanPayment.js` | Browser client for the same-origin Xaman payment API. |
 | `src/lib/fdcPayment.js` | Browser client for the local, opt-in FDC job API. |
 | `src/lib/aiAssistant.js` | Browser client for the local AI API, and suggestion-to-form mapping. |
-| `src/components/AiInvoiceExtraction.jsx` | Optional paste-an-invoice panel and suggestion review. |
-| `server/ai/` | Model client, S1 prompt, and the schema validator that gates every reply. |
+| `src/components/AiInvoiceExtraction.jsx` | Optional upload-or-paste invoice panel and suggestion review. |
+| `server/ai/` | PDF/XML/UBL parsers, model client, S1 prompt, and the schema validator that gates every reply. |
 | `server/index.js` | Isolated Xaman service and testnet-only FDC job runner. |
 | `src/lib/exampleAgreement.js` | Placeholder values for the layout illustration. |
 | `src/styles/tokens.css` | Colour roles, spacing scale, type, radii. Change design values here. |

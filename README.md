@@ -55,7 +55,7 @@ Xaman requests and optional FDC job orchestration.
 
 ```bash
 npm --prefix web install
-npm --prefix web run dev
+npm run dev
 ```
 
 See [`web/README.md`](web/README.md) for the testnet-only Xaman, opt-in FDC, and
@@ -67,6 +67,7 @@ queue.
 
 | Command | Purpose |
 |---|---|
+| `npm run dev` | Start the local UI and its loopback-only service from the repository root. |
 | `npm run compile` | Compile Solidity `0.8.25` for the Paris EVM target. |
 | `npm test` | Run the default suite, then the verifier guard; currently POSIX-shell only because of the second step. |
 | `npm run check` | Compile and run `npm test`; this is the GitHub Actions gate. |

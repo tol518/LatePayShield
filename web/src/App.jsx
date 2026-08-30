@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Sidebar from './components/Sidebar.jsx';
 import TopBar from './components/TopBar.jsx';
 import Hero from './components/Hero.jsx';
 import AiInvoiceExtraction from './components/AiInvoiceExtraction.jsx';
@@ -20,23 +21,31 @@ export default function App() {
     <>
       <a className="skip-link" href="#main">Skip to main content</a>
 
-      <TopBar />
+      <div className="app-shell">
+        <Sidebar />
+        <div className="app-shell__body">
+          <TopBar />
 
-      <main id="main">
-        <Hero />
-        <AiInvoiceExtraction onSuggest={setSuggestions} />
-        <AgreementCreator
-          suggestions={suggestions}
-          onCreated={() => setRegistryRefreshKey((key) => key + 1)}
-        />
-        <LiveRegistry refreshKey={registryRefreshKey} />
-        <HowItWorks />
-        <EvidenceBoundaries />
-        <StatusLegend />
-        <PrototypeNotice />
-      </main>
+          <main className="workspace" id="main">
+            <Hero />
+            <AiInvoiceExtraction onSuggest={setSuggestions} />
+            <LiveRegistry refreshKey={registryRefreshKey} />
+            <AgreementCreator
+              suggestions={suggestions}
+              onCreated={() => setRegistryRefreshKey((key) => key + 1)}
+            />
 
-      <Footer />
+            <div className="workspace__supporting">
+              <HowItWorks />
+              <EvidenceBoundaries />
+              <StatusLegend />
+              <PrototypeNotice />
+            </div>
+          </main>
+
+          <Footer />
+        </div>
+      </div>
     </>
   );
 }

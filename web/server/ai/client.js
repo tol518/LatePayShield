@@ -22,11 +22,25 @@ export class AiUnavailableError extends Error {
  *
  * @returns {Promise<{content: string, finishReason: string, usage: object, latencyMs: number}>}
  */
-export async function chatCompletion({ system, user, temperature, topP, maxTokens, label }) {
+export async function chatCompletion({
+  system,
+  user,
+  temperature,
+  topP,
+  maxTokens,
+  chatTemplateKwargs,
+  label,
+}) {
   const config = readAiConfig();
   if (!config.ready) throw new AiUnavailableError(config.unavailableReason);
 
   const startedAt = Date.now();
+  // Deliberately log request metadata only. Invoice text, model output, and
+  // reasoning must never appear in application logs.
+  console.log(
+    `[ai] ${label} request model=${config.model} max_tokens=${maxTokens ?? 'unset'} `
+    + `max_completion_tokens=unset chat_template_kwargs=${JSON.stringify(chatTemplateKwargs ?? {})}`,
+  );
   let upstream;
   try {
     upstream = await fetch(`${config.baseUrl}/chat/completions`, {
@@ -41,6 +55,7 @@ export async function chatCompletion({ system, user, temperature, topP, maxToken
         temperature,
         top_p: topP,
         max_tokens: maxTokens,
+        ...(chatTemplateKwargs ? { chat_template_kwargs: chatTemplateKwargs } : {}),
         stream: false,
       }),
       signal: AbortSignal.timeout(config.timeoutMs),
@@ -51,6 +66,10 @@ export async function chatCompletion({ system, user, temperature, topP, maxToken
     const detail = error?.name === 'TimeoutError'
       ? `The local model did not answer within ${Math.round(config.timeoutMs / 1000)} seconds.`
       : 'The local model could not be reached.';
+    console.warn(
+      `[ai] ${label} failed outcome=${error?.name === 'TimeoutError' ? 'timeout' : 'unreachable'} `
+      + `duration_ms=${Date.now() - startedAt}`,
+    );
     throw new AiUnavailableError(detail);
   }
 
@@ -65,7 +84,9 @@ export async function chatCompletion({ system, user, temperature, topP, maxToken
 
   console.log(
     `[ai] ${label} model=${config.model} finish=${choice?.finish_reason ?? 'none'} `
-    + `prompt=${usage.prompt_tokens ?? '?'} completion=${usage.completion_tokens ?? '?'} ${latencyMs}ms`,
+    + `prompt_tokens=${usage.prompt_tokens ?? '?'} completion_tokens=${usage.completion_tokens ?? '?'} `
+    + `reasoning_tokens=${usage.reasoning_tokens ?? usage.completion_tokens_details?.reasoning_tokens ?? '?'} `
+    + `total_tokens=${usage.total_tokens ?? '?'} duration_ms=${latencyMs}`,
   );
 
   if (!choice) throw new AiUnavailableError('The local model returned no completion.');
