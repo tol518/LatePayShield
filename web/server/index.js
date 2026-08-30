@@ -3,11 +3,12 @@ import { spawn } from 'node:child_process';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import dotenv from 'dotenv';
 import xummSdkPackage from 'xumm-sdk';
 import { readAiConfig } from './ai/config.js';
 import { runExtraction, MAX_INVOICE_CHARACTERS } from './ai/extract.js';
+import { extractDocumentText, MAX_DOCUMENT_BYTES, MAX_PDF_PAGES } from './ai/documentText.js';
 
 const { XummSdk } = xummSdkPackage;
 // This package is intentionally frontend-adjacent, but credentials belong to
@@ -22,7 +23,7 @@ const CLASSIC_ADDRESS = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
 const MAX_BODY_BYTES = 16 * 1024;
 // A pasted invoice is legitimately larger than any other request this service
 // takes, so the AI route gets its own ceiling instead of raising it everywhere.
-const MAX_AI_BODY_BYTES = 64 * 1024;
+const MAX_AI_BODY_BYTES = Math.ceil(MAX_DOCUMENT_BYTES * 4 / 3) + 256 * 1024;
 const SESSION_LIFETIME_MS = 15 * 60 * 1000;
 const DIST_DIR = fileURLToPath(new URL('../dist', import.meta.url));
 const PROJECT_DIR = fileURLToPath(new URL('../../', import.meta.url));
@@ -210,8 +211,12 @@ async function aiExtract(request, response) {
   }
 
   const body = await readJson(request, MAX_AI_BODY_BYTES);
-  const result = await runExtraction(body.invoiceText);
-  sendJson(response, 200, result);
+  const document = body.document ? await extractDocumentText(body.document) : null;
+  const result = await runExtraction(document?.text ?? body.invoiceText);
+  sendJson(response, 200, {
+    ...result,
+    document: document ? { name: document.name, format: document.format, size: document.size } : null,
+  });
 }
 
 async function readJson(request, limit = MAX_BODY_BYTES) {
@@ -250,6 +255,7 @@ function publicSession(session) {
     opened: session.opened,
     txid: session.txid,
     account: session.account,
+    dispatchResult: session.dispatchResult,
     deepLink: session.deepLink,
     qrPng: session.qrPng,
     expiresAt: session.expiresAt,
@@ -279,7 +285,7 @@ async function createPayment(request, response) {
     },
     custom_meta: {
       identifier: `latepay-agreement-${payment.agreementId}`,
-      instruction: `Pay agreement #${payment.agreementId} on XRPL Testnet`,
+      instruction: `Pay agreement #${payment.agreementId} from an account other than the receiving account`,
     },
   };
 
@@ -292,6 +298,7 @@ async function createPayment(request, response) {
       session.status = 'signed';
       session.txid = current.response?.txid ?? data.txid ?? null;
       session.account = current.response?.account ?? current.response?.signer ?? null;
+      session.dispatchResult = current.response?.dispatched_result ?? data.dispatched_result ?? null;
       return { resolved: true };
     }
     if (current.meta.cancelled) {
@@ -312,6 +319,56 @@ async function createPayment(request, response) {
     opened: false,
     txid: null,
     account: null,
+    dispatchResult: null,
+    deepLink: created.next.always,
+    qrPng: created.refs.qr_png,
+    expiresAt: new Date(Date.now() + expireMinutes * 60_000).toISOString(),
+  };
+  sessions.set(session.id, session);
+  setTimeout(() => sessions.delete(session.id), SESSION_LIFETIME_MS).unref();
+  sendJson(response, 201, publicSession(session));
+}
+
+async function createWalletConnection(response) {
+  if (!configured) {
+    sendJson(response, 503, { error: 'Xaman wallet connection is not configured. Add XUMM_APIKEY and XUMM_APISECRET to the repository-root .env.' });
+    return;
+  }
+
+  const expireMinutes = 5;
+  const payload = {
+    txjson: { TransactionType: 'SignIn' },
+  };
+
+  const subscription = await sdk.payload.createAndSubscribe(payload, ({ data, payload: current }) => {
+    const session = sessions.get(current.meta.uuid);
+    if (!session) return undefined;
+
+    session.opened = session.opened || Boolean(current.meta.app_opened || data.opened);
+    if (current.meta.signed || data.signed) {
+      session.status = 'signed';
+      session.account = current.response?.account ?? current.response?.signer ?? data.account ?? null;
+      return { resolved: true };
+    }
+    if (current.meta.cancelled) {
+      session.status = 'cancelled';
+      return { resolved: true };
+    }
+    if (current.meta.expired || data.expired) {
+      session.status = 'expired';
+      return { resolved: true };
+    }
+    return undefined;
+  });
+
+  const created = subscription.created;
+  const session = {
+    id: created.uuid,
+    status: 'waiting',
+    opened: false,
+    txid: null,
+    account: null,
+    dispatchResult: null,
     deepLink: created.next.always,
     qrPng: created.refs.qr_png,
     expiresAt: new Date(Date.now() + expireMinutes * 60_000).toISOString(),
@@ -323,12 +380,12 @@ async function createPayment(request, response) {
 
 function paymentStatus(response, id) {
   if (!UUID.test(id)) {
-    sendJson(response, 400, { error: 'Invalid Xaman payment request ID.' });
+    sendJson(response, 400, { error: 'Invalid Xaman request ID.' });
     return;
   }
   const session = sessions.get(id);
   if (!session) {
-    sendJson(response, 404, { error: 'This payment request is no longer active. Create a new request.' });
+    sendJson(response, 404, { error: 'This Xaman request is no longer active. Create a new request.' });
     return;
   }
   sendJson(response, 200, publicSession(session));
@@ -352,6 +409,26 @@ async function xrplTransaction(response, hash) {
     return;
   }
   sendJson(response, 200, payload);
+}
+
+async function xrplAgreementDefaults(response) {
+  const upstream = await fetch(XRPL_TESTNET_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method: 'ledger_current', params: [{}] }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const payload = await upstream.json();
+  const ledgerIndex = Number(payload?.result?.ledger_current_index);
+  if (!upstream.ok || !Number.isSafeInteger(ledgerIndex) || ledgerIndex <= 0) {
+    sendJson(response, 502, { error: 'The current XRPL Testnet ledger could not be read.' });
+    return;
+  }
+  sendJson(response, 200, {
+    network: 'XRPL Testnet',
+    startLedger: ledgerIndex,
+    destinationTag: randomInt(1, 0x100000000),
+  });
 }
 
 const MIME = {
@@ -398,6 +475,9 @@ const server = http.createServer(async (request, response) => {
         aiReady: aiConfig.ready,
         aiUnavailableReason: aiConfig.unavailableReason,
         aiMaxInvoiceCharacters: MAX_INVOICE_CHARACTERS,
+        aiMaxDocumentBytes: MAX_DOCUMENT_BYTES,
+        aiMaxPdfPages: MAX_PDF_PAGES,
+        aiDocumentFormats: ['PDF', 'XML', 'UBL'],
       });
       return;
     }
@@ -407,6 +487,23 @@ const server = http.createServer(async (request, response) => {
         return;
       }
       await createPayment(request, response);
+      return;
+    }
+    if (request.method === 'POST' && url.pathname === '/api/xaman/wallet-connections') {
+      if (!allowPaymentRequest(request.socket.remoteAddress ?? 'unknown')) {
+        sendJson(response, 429, { error: 'Too many wallet requests. Wait one minute and try again.' });
+        return;
+      }
+      await createWalletConnection(response);
+      return;
+    }
+    const walletConnectionMatch = request.method === 'GET' && url.pathname.match(/^\/api\/xaman\/wallet-connections\/([^/]+)$/);
+    if (walletConnectionMatch) {
+      paymentStatus(response, walletConnectionMatch[1]);
+      return;
+    }
+    if (request.method === 'GET' && url.pathname === '/api/xrpl/agreement-defaults') {
+      await xrplAgreementDefaults(response);
       return;
     }
     const xrplMatch = request.method === 'GET' && url.pathname.match(/^\/api\/xrpl\/transactions\/([A-Fa-f0-9]{64})$/);

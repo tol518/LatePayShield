@@ -11,11 +11,19 @@ import { parseJsonObject } from './text.js';
 import { validateExtraction } from './extractionSchema.js';
 import { EXTRACTION_SYSTEM_PROMPT, buildExtractionPrompt, buildRetryPrompt } from './prompts.js';
 
-/* SKILLS.md §8, S1 row: thinking on, temperature 0.1, top_p 0.9. Qwen3 spends
- * output tokens on reasoning, so the ceiling covers thinking plus the object. */
-const EXTRACTION_SETTINGS = { temperature: 0.1, topP: 0.9, maxTokens: 2400 };
+/* An extraction is a small JSON object. Keep Qwen3 out of thinking mode and
+ * use a bounded 1,024-token completion envelope. The previous 2,400-token
+ * override caused slow requests to outlive the client, while 512 can truncate
+ * a complete seven-field JSON extraction from a UBL invoice.
+ */
+const EXTRACTION_SETTINGS = {
+  temperature: 0.1,
+  topP: 0.9,
+  maxTokens: 1024,
+  chatTemplateKwargs: { enable_thinking: false },
+};
 
-export const MAX_INVOICE_CHARACTERS = 20_000;
+export const MAX_INVOICE_CHARACTERS = 25_000;
 
 /** A problem with what the user pasted, not with the model. */
 export class AiInputError extends Error {

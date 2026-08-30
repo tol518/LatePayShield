@@ -20,7 +20,7 @@ The interface should feel like dependable payment administration, not a trading 
 
 ## Primary journey
 
-1. **Prepare:** Paste invoice text for the optional local assistant, or enter terms manually. The assistant is absent from the page when it is switched off, and no journey step depends on it.
+1. **Prepare:** Upload a searchable PDF, XML, or UBL invoice, paste invoice text, or enter terms manually. The optional assistant is absent from the page when it is switched off, and no journey step depends on it. The upload control states the 10 MB/50-page limits and explains that scanned PDFs need OCR first.
 2. **Review:** Display AI-extracted values as editable suggestions, each shown with the verbatim quote from the document that supports it and the model's own confidence. Suggestions are labelled proposed and unconfirmed, and never include the XRPL destination, destination tag, XRP amount, or evidence-window start ledger. The invoice total and currency are reference-only: no currency is converted.
 3. **Confirm:** Require explicit confirmation of amount, deadline, XRPL destination, destination tag, and evidence-window start.
 4. **Register:** Show the Coston2 agreement ID and canonical terms hash.
@@ -47,6 +47,8 @@ Mismatch, network failure, and proof failure are operational conditions, not suc
 ### Agreement preparation and confirmation
 
 - Mark extracted values as suggested.
+- Accept one searchable PDF, XML, or UBL file without removing the paste-text path.
+- Show the selected file name and detected format, with a clear remove action.
 - Make every authoritative value editable.
 - Show a persistent Testnet label.
 - Explain the destination tag and creator-supplied evidence-window start.
@@ -91,6 +93,15 @@ Mismatch, network failure, and proof failure are operational conditions, not suc
 - Prefer ordinary payment language and explain blockchain terms at the point of use.
 - Define typography, color roles, spacing, responsive behavior, and component states before frontend implementation.
 - Avoid generic crypto neon, trading-terminal density, and decorative network imagery that competes with evidence.
+
+## Implemented workspace layout
+
+- Use a blue business-finance workspace with a persistent desktop sidebar and compact top bar.
+- Lead with **Invoice protection** and the four-stage journey: Invoice → Confirm terms → Agreement → Evidence.
+- Keep invoice upload, local-AI privacy, and human confirmation together in the dominant first workspace.
+- Show recent live agreements immediately after invoice preparation; keep contract/verifier metadata in an optional disclosure.
+- Collapse the sidebar into a compact branded top bar on narrow screens without hiding the Testnet label.
+- Preserve ordinary payment language and make technical detail secondary throughout the layout.
 
 ## Update triggers
 

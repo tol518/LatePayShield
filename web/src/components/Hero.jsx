@@ -1,31 +1,19 @@
-import AgreementPreviewCard from './AgreementPreviewCard.jsx';
-import { EXAMPLE_AGREEMENT } from '../lib/exampleAgreement.js';
-
 export default function Hero() {
   return (
-    <section className="hero">
-      <div className="shell hero__grid">
-        <div className="hero__copy">
-          <p className="eyebrow">Payment agreements with an evidence layer</p>
-          <h1>Record what payment is required, then keep evidence of what happened.</h1>
-          <p className="hero__lede">
-            LatePay Shield records the payment criteria for an invoice, gives your customer exact
-            payment instructions, and keeps independently checkable evidence of the outcome —
-            whether a qualifying payment arrived or none was found in the window you defined.
-          </p>
-
-          {/* One filled primary action per view. */}
-          <div className="hero__actions">
-            <a className="btn btn--primary" href="#prepare">Prepare an agreement</a>
-            <a className="btn btn--quiet" href="#registry">View live contract state</a>
-          </div>
-          <p className="hero__note">
-            No account needed to look around. Nothing is registered until you confirm the terms.
-          </p>
-        </div>
-
-        <AgreementPreviewCard agreement={EXAMPLE_AGREEMENT} />
+    <section className="workspace-header" aria-labelledby="workspace-title">
+      <div className="workspace-header__title">
+        <p className="eyebrow">Payment agreements with an evidence layer</p>
+        <h1 id="workspace-title">Invoice protection</h1>
       </div>
+      <ol className="journey-progress" aria-label="Agreement progress">
+        <li className="is-current"><span>1</span>Invoice</li>
+        <li><span>2</span>Confirm terms</li>
+        <li><span>3</span>Agreement</li>
+        <li><span>4</span>Evidence</li>
+      </ol>
+      <p className="workspace-header__lede">
+        Upload an invoice, review the extracted terms, confirm the agreement, and track payment.
+      </p>
     </section>
   );
 }

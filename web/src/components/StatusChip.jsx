@@ -19,7 +19,7 @@ export default function StatusChip({ status }) {
 
   return (
     <span className={`chip chip--${entry.tone}`}>
-      <Icon />
+      <Icon className={entry.icon === 'progress' ? 'is-spinning' : undefined} />
       {entry.label}
     </span>
   );

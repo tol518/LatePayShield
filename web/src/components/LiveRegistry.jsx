@@ -7,6 +7,7 @@ import PaymentJourney from './PaymentJourney.jsx';
 import { COSTON2, CONTRACT_ADDRESS, addressUrl, xrplTxUrl } from '../lib/network.js';
 import { formatDrops, formatDate, shortenId } from '../lib/format.js';
 import { getPaymentDestination, getPaymentTransactionHash, savePaymentDestination } from '../lib/paymentInstructions.js';
+import { readPayerLink } from '../lib/payerLink.js';
 
 /* The only section on this page reading live chain state. Everything above it
    is explanatory copy; everything here came from Coston2 at page load. */
@@ -17,35 +18,11 @@ export default function LiveRegistry({ refreshKey = 0 }) {
     <section className="section" id="registry">
       <div className="shell">
         <div className="section__head">
-          <h2>Live contract state</h2>
+          <p className="eyebrow">Live Coston2 records</p>
+          <h2>Recent agreements</h2>
           <p>
-            Read from the deployed LatePay Shield contract on {COSTON2.label} when this page
-            loaded. Nothing here is illustrative.
+            Current agreement status read from the deployed LatePay Shield contract when this page loaded.
           </p>
-        </div>
-
-        <div className="registry">
-          <div className="card">
-            <p className="card__title">Deployment</p>
-            <dl className="kv">
-              <dt>Network</dt>
-              <dd>{COSTON2.name} · chain {COSTON2.chainId}</dd>
-              <dt>Contract</dt>
-              <dd className="mono">
-                <a href={addressUrl(CONTRACT_ADDRESS)} target="_blank" rel="noreferrer">
-                  {shortenId(CONTRACT_ADDRESS)}
-                </a>
-              </dd>
-              <dt>Latest block</dt>
-              <dd className="mono">
-                {phase === 'ready' ? registry.blockNumber.toLocaleString('en-GB') : '—'}
-              </dd>
-              <dt>Agreements</dt>
-              <dd className="mono">{phase === 'ready' ? registry.agreementCount : '—'}</dd>
-            </dl>
-          </div>
-
-          <VerifierCard phase={phase} registry={registry} />
         </div>
 
         <div className="registry__body">
@@ -54,6 +31,33 @@ export default function LiveRegistry({ refreshKey = 0 }) {
           {phase === 'ready' && agreements.length === 0 && <EmptyState />}
           {phase === 'ready' && agreements.length > 0 && <AgreementTable agreements={agreements} />}
         </div>
+
+        <details className="registry-tech">
+          <summary>View contract and verifier details</summary>
+          <div className="registry">
+            <div className="card">
+              <p className="card__title">Deployment</p>
+              <dl className="kv">
+                <dt>Network</dt>
+                <dd>{COSTON2.name} · chain {COSTON2.chainId}</dd>
+                <dt>Contract</dt>
+                <dd className="mono">
+                  <a href={addressUrl(CONTRACT_ADDRESS)} target="_blank" rel="noreferrer">
+                    {shortenId(CONTRACT_ADDRESS)}
+                  </a>
+                </dd>
+                <dt>Latest block</dt>
+                <dd className="mono">
+                  {phase === 'ready' ? registry.blockNumber.toLocaleString('en-GB') : '—'}
+                </dd>
+                <dt>Agreements</dt>
+                <dd className="mono">{phase === 'ready' ? registry.agreementCount : '—'}</dd>
+              </dl>
+            </div>
+
+            <VerifierCard phase={phase} registry={registry} />
+          </div>
+        </details>
       </div>
     </section>
   );
@@ -101,7 +105,7 @@ function VerifierCard({ phase, registry }) {
 function LoadingState() {
   return (
     <div className="state-panel">
-      <span className="chip chip--testnet"><Progress />Reading the contract</span>
+      <span className="chip chip--testnet"><Progress className="is-spinning" />Reading the contract</span>
       <p>Fetching registry state from the {COSTON2.label} public RPC.</p>
     </div>
   );
@@ -136,12 +140,16 @@ function EmptyState() {
 }
 
 function AgreementTable({ agreements }) {
-  const [payingAgreementId, setPayingAgreementId] = useState(null);
+  /* A payer following a supplier's link should land on that agreement's payment
+   * panel already open, rather than having to find the row themselves. */
+  const [payingAgreementId, setPayingAgreementId] = useState(
+    () => readPayerLink(window.location.href)?.agreementId ?? null,
+  );
 
   return (
     <div className="table-wrap">
       <table className="table">
-        <caption className="table__caption">Agreements recorded on this contract</caption>
+        <caption className="table__caption">Recent agreements</caption>
         <thead>
           <tr>
             <th scope="col">Agreement</th>
@@ -217,7 +225,14 @@ function AgreementEvidence({ agreement, expanded, onTogglePay }) {
 function PaymentAction({ agreement }) {
   const [destination, setDestination] = useState(() => getPaymentDestination(agreement.id));
   const transactionHash = getPaymentTransactionHash(agreement.id);
-  const [candidate, setCandidate] = useState('');
+  /* A payer link carries the receiving address, but it is only a claim until it
+   * matches the agreement's on-chain hash. Prefilling the existing field — and
+   * leaving its verify step in place — means a tampered link is rejected by the
+   * same check that catches a typo, and the payer still sees what they accept. */
+  const [candidate, setCandidate] = useState(() => {
+    const link = readPayerLink(window.location.href);
+    return link?.agreementId === agreement.id ? link.destination : '';
+  });
   const [error, setError] = useState('');
 
   function addDestination(event) {

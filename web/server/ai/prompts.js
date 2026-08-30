@@ -48,6 +48,11 @@ Reply with exactly one JSON object and no prose outside it. Use this shape:
   "warnings": [string]
 }
 
+KEEP THE RESPONSE COMPACT
+- Source quotes must be the shortest verbatim evidence that supports the value, and no longer than 80 characters.
+- Use an empty warnings array unless a warning is essential.
+- Do not repeat the invoice, XML paths, field rules, or explanations in the JSON.
+
 FIELD RULES
 - invoiceNumber, supplierName, payerName: copy verbatim from the text.
 - currency: the three-letter ISO code of the invoice total, uppercase, for example GBP, EUR, USD. Quote the span that carries the currency symbol or code, such as "Total due £2,000.00" — the document rarely writes the ISO code itself, and a quote you cannot find in the text will be discarded.

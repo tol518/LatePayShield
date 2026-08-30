@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle, Document, InfoCircle, Person, Progress, Warning } from './Icons.jsx';
 import {
   fetchAssistantAvailability,
@@ -25,9 +25,11 @@ const REFERENCE_FIELDS = ['currency', 'amountMinorUnits', 'paymentTermsText'];
 export default function AiInvoiceExtraction({ onSuggest }) {
   const [availability, setAvailability] = useState(null);
   const [invoiceText, setInvoiceText] = useState('');
+  const [invoiceFile, setInvoiceFile] = useState(null);
   const [phase, setPhase] = useState('idle');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -43,7 +45,11 @@ export default function AiInvoiceExtraction({ onSuggest }) {
     setError('');
     setResult(null);
     try {
-      setResult(await requestExtraction(invoiceText));
+      setResult(await requestExtraction({
+        invoiceText,
+        file: invoiceFile,
+        maxDocumentBytes: availability.aiMaxDocumentBytes,
+      }));
       setPhase('done');
     } catch (extractionError) {
       setError(extractionError?.message ?? 'The assistant could not read this document.');
@@ -54,6 +60,35 @@ export default function AiInvoiceExtraction({ onSuggest }) {
   function applySuggestions() {
     const suggestions = toFormSuggestions(result);
     onSuggest?.(suggestions);
+    // Wait for React to put the suggested values into the agreement form before
+    // moving the user to the next step in the journey.
+    window.requestAnimationFrame(() => {
+      document.getElementById('prepare')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }
+
+  function selectFile(event) {
+    setInvoiceFile(event.target.files?.[0] ?? null);
+    setResult(null);
+    setError('');
+  }
+
+  function clearFile() {
+    setInvoiceFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function dropFile(event) {
+    event.preventDefault();
+    if (busy) return;
+    const nextFile = event.dataTransfer.files?.[0] ?? null;
+    if (!nextFile) return;
+    setInvoiceFile(nextFile);
+    setResult(null);
+    setError('');
   }
 
   // Nothing is rendered until availability is known, and nothing is rendered at
@@ -66,53 +101,93 @@ export default function AiInvoiceExtraction({ onSuggest }) {
   const refusal = result?.skill === 'refusal' ? result : null;
 
   return (
-    <section className="section" id="assistant">
+    <section className="section section--assistant" id="assistant">
       <div className="shell">
-        <div className="section__head">
-          <p className="eyebrow">Optional — local assistant</p>
-          <h2>Read terms from an invoice</h2>
-          <p>
-            A language model running on the operator's own machine proposes the descriptive
-            terms it can quote from a document. It never sets the payment criteria, never
-            converts currency, and never confirms anything. You review every value in the
-            form below.
-          </p>
-        </div>
-
-        <div className="creator-layout">
+        <div className="creator-layout assistant-layout">
           <form className="card assistant-form" onSubmit={suggest}>
-            <label htmlFor="assistant-invoice">Invoice text</label>
-            <textarea
-              id="assistant-invoice"
-              name="invoiceText"
-              rows={14}
-              value={invoiceText}
-              onChange={(event) => setInvoiceText(event.target.value)}
-              placeholder="Paste the invoice text here."
-              aria-describedby="assistant-invoice-help"
+            <div className="assistant-form__head">
+              <p className="eyebrow">Start here</p>
+              <h2>Create a protected agreement</h2>
+              <p>Upload your invoice. Your local AI will suggest the key terms for you to review.</p>
+            </div>
+            <input
+              ref={fileInputRef}
+              className="visually-hidden"
+              id="assistant-file"
+              name="invoiceFile"
+              type="file"
+              accept=".pdf,.xml,.ubl,application/pdf,application/xml,text/xml,application/ubl+xml"
+              onChange={selectFile}
+              aria-describedby="assistant-file-help"
               disabled={busy}
-              required
             />
-            <p className="field__help" id="assistant-invoice-help">
-              Held for this request only. It is never written to evidence, committed, or sent on-chain.
-              {availability.aiMaxInvoiceCharacters
-                ? ` Up to ${availability.aiMaxInvoiceCharacters.toLocaleString('en-GB')} characters.`
-                : null}
-            </p>
+            <label
+              className="upload-zone"
+              htmlFor="assistant-file"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={dropFile}
+            >
+              <span className="upload-zone__icon"><Document /></span>
+              <span className="upload-zone__copy">
+                <strong>{invoiceFile ? invoiceFile.name : 'Drag and drop your invoice here'}</strong>
+                <span>{invoiceFile ? 'Choose a different file' : 'or choose a file to upload'}</span>
+                <small id="assistant-file-help">
+                  PDF, XML, UBL · Up to {availability.aiMaxDocumentBytes
+                    ? Math.floor(availability.aiMaxDocumentBytes / 1024 / 1024)
+                    : 10} MB
+                  {availability.aiMaxPdfPages ? ` · ${availability.aiMaxPdfPages} searchable PDF pages` : ''}
+                </small>
+              </span>
+            </label>
+            {invoiceFile ? (
+              <div className="assistant-file__selection">
+                <span><Document /> {invoiceFile.name}</span>
+                <button className="btn btn--quiet" type="button" onClick={clearFile} disabled={busy}>Remove</button>
+              </div>
+            ) : null}
+
+            <details className="assistant-paste">
+              <summary>Or paste invoice text</summary>
+              <label htmlFor="assistant-invoice">Invoice text</label>
+              <textarea
+                id="assistant-invoice"
+                name="invoiceText"
+                rows={8}
+                value={invoiceText}
+                onChange={(event) => setInvoiceText(event.target.value)}
+                placeholder="Paste the invoice text here."
+                aria-describedby="assistant-invoice-help"
+                disabled={busy}
+                required={!invoiceFile}
+              />
+              <p className="field__help" id="assistant-invoice-help">
+                Held for this request only. Up to {availability.aiMaxInvoiceCharacters
+                  ? availability.aiMaxInvoiceCharacters.toLocaleString('en-GB')
+                  : '25,000'} characters.
+              </p>
+            </details>
+
+            <div className="privacy-panel">
+              <ShieldPrivacy />
+              <span><strong>Private local AI</strong>Your invoice is processed by a model running on our own machines so your data is not shared with third parties and remains private.</span>
+            </div>
 
             <div className="form-actions">
-              <button className="btn btn--primary" type="submit" disabled={busy || !availability.aiReady}>
-                {busy ? <Progress /> : <Document />}
-                {busy ? 'Reading the document…' : 'Suggest terms'}
+              <button
+                className="btn btn--primary"
+                type="submit"
+                disabled={busy || !availability.aiReady || (!invoiceFile && invoiceText.trim().length < 20)}
+              >
+                {busy ? <Progress className="is-spinning" /> : <Document />}
+                {busy ? 'Reading the document…' : 'Review invoice'}
               </button>
             </div>
 
             {!availability.aiReady && availability.aiUnavailableReason ? (
-              <p className="assistant-note"><InfoCircle /> {availability.aiUnavailableReason}</p>
+              <p className="assistant-note"><InfoCircle /> {availability.aiUnavailableReason} You can still enter terms manually below.</p>
             ) : (
               <p className="assistant-note">
-                <InfoCircle /> A local model takes up to a minute to answer. If it is unavailable, fill the
-                form in directly — nothing here is required.
+                <InfoCircle /> Suggestions are never final. You confirm every value before an agreement is recorded.
               </p>
             )}
           </form>
@@ -137,16 +212,32 @@ export default function AiInvoiceExtraction({ onSuggest }) {
 
 function AssistantIdle({ busy }) {
   return (
-    <div className="commitment__empty">
-      <span className="chip chip--neutral">{busy ? <Progress /> : <Document />}{busy ? 'Reading' : 'No suggestions yet'}</span>
-      <h3>{busy ? 'The local model is reading the document' : 'Suggestions appear here'}</h3>
-      <p>
-        {busy
-          ? 'Nothing is submitted anywhere while this runs. The document stays on this machine and the operator’s model host.'
-          : 'Every suggestion arrives with the exact words from the document that support it, and stays editable in the agreement form.'}
-      </p>
+    <div className="agreement-preview">
+      <div className="agreement-preview__title"><span><Document /></span><h2>Agreement preview</h2></div>
+      {busy ? (
+        <div className="agreement-preview__reading">
+          <span className="chip chip--primary"><Progress className="is-spinning" />Reading invoice</span>
+          <h3>The local model is extracting terms</h3>
+          <p>Your document stays on your computers while this runs.</p>
+        </div>
+      ) : (
+        <>
+          <div className="preview-stat"><strong>—</strong><span>Amount and currency</span></div>
+          <div className="preview-row"><ClockIcon /><span><strong>Not set</strong><small>Payment due date</small></span></div>
+          <div className="preview-row"><Progress /><span><strong>Awaiting confirmation</strong><small>No agreement created yet</small></span></div>
+          <div className="preview-trust"><Person /><span><strong>Human confirmation is authoritative</strong><small>You review and confirm all terms before an agreement is created.</small></span></div>
+        </>
+      )}
     </div>
   );
+}
+
+function ShieldPrivacy() {
+  return <CheckCircle />;
+}
+
+function ClockIcon() {
+  return <InfoCircle />;
 }
 
 function ExtractionResult({ extraction, onApply }) {
@@ -159,6 +250,9 @@ function ExtractionResult({ extraction, onApply }) {
     <div>
       <span className="chip chip--testnet"><Person />Proposed — not confirmed</span>
       <h3>{grounded.length} value{grounded.length === 1 ? '' : 's'} quoted from the document</h3>
+      {extraction.document ? (
+        <p className="assistant-note"><Document /> Read {extraction.document.name} as {extraction.document.format}.</p>
+      ) : null}
       <p className="commitment__message">
         Model confidence: {extraction.confidence}. Confidence is the model's own estimate, not a check
         against anything. Read each quote before you accept a value.

@@ -35,7 +35,8 @@ export function Clock(props) {
   );
 }
 
-/* Static arc, not a spinner: verification state must not depend on animation. */
+/* A progress arc. It only spins when the calling component adds .is-spinning;
+   the adjacent text remains the authoritative status signal. */
 export function Progress(props) {
   return (
     <svg {...base} {...props}>

@@ -39,11 +39,46 @@ export function fetchAssistantAvailability() {
   return request('/api/xaman/health');
 }
 
-export function requestExtraction(invoiceText) {
+const SUPPORTED_DOCUMENT_EXTENSION = /\.(pdf|xml|ubl)$/i;
+const DEFAULT_MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
+function documentPayload(file, maxBytes) {
+  if (!SUPPORTED_DOCUMENT_EXTENSION.test(file.name)) {
+    throw new Error('Choose a PDF, XML, or UBL invoice.');
+  }
+  if (file.size > maxBytes) {
+    throw new Error(`Choose a document no larger than ${Math.floor(maxBytes / 1024 / 1024)} MB.`);
+  }
+  if (file.size === 0) throw new Error('The selected document is empty.');
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('The selected document could not be read.'));
+    reader.onload = () => {
+      const dataUrl = String(reader.result ?? '');
+      const separator = dataUrl.indexOf(',');
+      if (separator < 0) {
+        reject(new Error('The selected document could not be encoded.'));
+        return;
+      }
+      resolve({
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        dataBase64: dataUrl.slice(separator + 1),
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function requestExtraction({ invoiceText = '', file = null, maxDocumentBytes = DEFAULT_MAX_DOCUMENT_BYTES } = {}) {
+  const body = file
+    ? { document: await documentPayload(file, maxDocumentBytes) }
+    : { invoiceText };
   return request('/api/ai/extractions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invoiceText }),
+    body: JSON.stringify(body),
   });
 }
 

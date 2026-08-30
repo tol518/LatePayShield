@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated:** 28 August 2026
+**Last updated:** 30 August 2026
 **Phase:** Both outcome branches proven end to end on testnet; local AI extraction wired into the UI
 **Current base:** Remote `main` commit `2efb083`
 
@@ -11,6 +11,8 @@ The exact external tools and URLs used to create this evidence are recorded in
 
 ## Working and verified
 
+- The React interface now uses the selected blue business-finance workspace: persistent desktop navigation, an invoice-to-evidence progress path, a drag-and-drop PDF/XML/UBL preparation card, local-AI privacy messaging, a truthful agreement preview, and recent live Coston2 agreements. The rendered page was checked in Chrome at 1440 × 1024 and 390 × 844 with no application console warnings/errors or horizontal mobile overflow. The paste-text disclosure, input enablement, and sidebar anchor navigation were exercised; no wallet or model submission was made during this visual check.
+- The agreement form now reads the current XRPL Testnet ledger, generates a destination tag, and creates a non-custodial Xaman `SignIn` QR/deep link for the supplier's public receiving address. The live browser check reached Xaman's waiting-for-approval state with both generated fields populated, no application console errors, and no horizontal overflow at 390 px. User approval inside Xaman remains intentionally outside website custody.
 - Repository contains a Node 24/Hardhat protocol foundation and locked dependency manifest.
 - `lib/canonical.js` implements deterministic version-1 terms and FDC address hashing; 14 local test executions pass.
 - `LatePayShield.sol` implements agreement creation, paid/non-payment proof matching, dispute state, and a guarded local verifier seam.
@@ -37,7 +39,7 @@ The exact external tools and URLs used to create this evidence are recorded in
 
 - The creator-supplied `startLedger` cannot be corroborated on-chain. For agreement `2` it was read from the live XRPL ledger immediately before creation, but the contract cannot check that.
 - `web/` implements a local React/Vite testnet interface with MetaMask agreement creation, live registry reads, Xaman/manual payment paths, public XRPL matching, and opt-in FDC job orchestration. Its build and focused tests pass, but this specific browser-to-FDC job path has not yet been independently demonstrated as one uninterrupted GUI run. The job service is loopback-only and in-memory, not durable persistence.
-- Skill S1 of `docs/ai/SKILLS.md` (invoice term extraction) is implemented in `web/server/ai/` behind `AI_ASSISTANT_ENABLED`, with a UI panel that fills the agreement form with quoted, editable suggestions. Against `mlx-community/Qwen3-8B-4bit` on an operator-hosted MLX endpoint, a clean invoice returned a schema-valid extraction and an injection fixture returned `refusal`/`unsafe_request`; the web package's 14 test executions pass, 11 of them covering this validator. This was a two-document manual run at roughly 40 to 55 seconds per request, not a fixture suite, and no browser run has been demonstrated end to end. S2 to S5 are not implemented.
+- Skill S1 of `docs/ai/SKILLS.md` (invoice term extraction) is implemented in `web/server/ai/` behind `AI_ASSISTANT_ENABLED`, with a UI panel that accepts pasted text or a searchable PDF, XML, or UBL file and fills the agreement form with quoted, editable suggestions. Uploaded files stay in memory; limits are 10 MB, 50 searchable PDF pages, and 25,000 extracted characters. XML DTD/entity declarations and image-only PDFs are rejected. The web package's 19 focused test executions and production build pass, including five document-parser fixtures and 11 validator executions. A synthetic UBL invoice also returned the expected invoice number, due date, and currency through the live loopback API and configured `mlx-community/Qwen3-8B-4bit` model. The earlier clean-text and injection manual checks still stand, but there is still no committed model fixture suite or completed rendered browser run. S2 to S5 are not implemented.
 
 ## Not implemented
 
@@ -54,6 +56,7 @@ The exact external tools and URLs used to create this evidence are recorded in
 2. Full `npm ci` auditing reports vulnerabilities in transitive development tooling even though the runtime-only CI audit is clean. Current major Hardhat/toolbox Dependabot upgrades fail CI.
 3. README's original “memo/reference matching” narrative exceeded the contract: the memo is captured in XRPL evidence but is not checked by `LatePayShield.sol`.
 4. `recordVerifiedNonPayment` pins the request to `expectedDrops - 1` on the stated assumption that the attestation matches payments strictly greater than the requested amount. The live verifier matches at or above it instead. The guard is still safe, because a payment of exactly `expectedDrops` continues to block an overdue verdict, but it is one drop wider than intended: a payment of exactly `expectedDrops - 1` also blocks it, so such an agreement can be recorded as neither paid nor overdue and its only exit is `markDisputed`. Correcting it means requesting `expectedDrops` instead, which changes the contract and needs a redeploy.
+5. The operator-hosted MLX generation worker exhausted Metal memory during a long invoice extraction. The endpoint remained reachable, but prompt-cache memory grew to 5.74 GB across 10 sequences and generation failed with `Insufficient Memory`. See [`ai/mlx-server-memory-diagnosis.md`](ai/mlx-server-memory-diagnosis.md) for recovery and the proposed operating limits. Until the Mac mini host is restarted and bounded, large AI extraction requests may time out or fail; manual entry remains available.
 
 ## Next priorities
 
