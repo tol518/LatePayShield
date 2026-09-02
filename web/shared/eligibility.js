@@ -180,13 +180,24 @@ export function answerProblem(answers) {
   return null;
 }
 
-/** The UTC calendar date of an on-chain deadline, or null when unreadable. */
+/**
+ * The calendar date of an on-chain deadline, or null when unreadable.
+ *
+ * Read in local time on purpose: the deadline seconds are derived in the
+ * browser from a `datetime-local` value with no zone of its own, and the
+ * invoice due date it is compared against is that same local calendar date.
+ * Rendering in UTC here would silently shift the date for anyone not on UTC
+ * and turn an agreeing pair of dates into a false mismatch.
+ */
 function deadlineDate(seconds) {
   const value = Number(seconds);
   if (!Number.isFinite(value) || value <= 0) return null;
   const date = new Date(value * 1000);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString().slice(0, 10);
+  const year = String(date.getFullYear()).padStart(4, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -198,7 +209,9 @@ function derivedReasons(context) {
   const amount = String(context.invoiceAmountMinorUnits ?? '').trim();
   const currency = String(context.invoiceCurrency ?? '').trim().toUpperCase();
   const configuredThreshold = Number(context.highValueThresholdMinorUnits);
-  const threshold = Number.isInteger(configuredThreshold) && configuredThreshold >= 0
+  // A blank environment value coerces to 0 here, and a threshold of 0 is not a
+  // meaningful routing boundary, so anything at or below it falls back too.
+  const threshold = Number.isInteger(configuredThreshold) && configuredThreshold > 0
     ? configuredThreshold
     : DEFAULT_HIGH_VALUE_THRESHOLD_MINOR_UNITS;
 

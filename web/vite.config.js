@@ -56,6 +56,7 @@ function operatorTokenMeta() {
 }
 
 export default defineConfig({
+  envDir: repositoryRoot,
   plugins: [canonicalTermsInterop(), operatorTokenMeta(), react()],
   resolve: {
     alias: {

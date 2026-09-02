@@ -204,11 +204,15 @@ to take advice.
 
 The high-value threshold defaults to `DEFAULT_HIGH_VALUE_THRESHOLD_MINOR_UNITS`
 (5,000,000 minor units, £50,000) and is overridable per workspace by
-`VITE_ELIGIBILITY_HIGH_VALUE_MINOR_UNITS`; a missing or non-integer value falls
-back to the default. The due-date check compares the case file's
-`invoiceDueDate` against the UTC calendar date of the linked agreement's
-on-chain `dueAt`; an agreement whose deadline cannot be read contributes
-`agreement_deadline_unreadable` rather than being treated as clear.
+`VITE_ELIGIBILITY_HIGH_VALUE_MINOR_UNITS`, read from the repository-root
+`.env` by Vite's `envDir`; a missing, blank, non-integer, or zero-or-below
+value falls back to the default, since zero is not a meaningful routing
+threshold. The due-date check compares the case file's `invoiceDueDate`
+against the local calendar date of the linked agreement's on-chain `dueAt`,
+read in the same convention the deadline was created in so an operator in any
+timezone gets a like-for-like comparison; an agreement whose deadline cannot
+be read contributes `agreement_deadline_unreadable` rather than being treated
+as clear.
 
 No outcome is ever persisted (D-011): `assess(answers, context)` recomputes it
 from the stored answers and a fresh registry read every time a case is opened.

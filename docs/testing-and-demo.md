@@ -62,25 +62,28 @@ re-encoding, leaf sensitivity to a single altered field, agreement of the respon
 
 ### Eligibility questionnaire
 
-`web/shared/eligibility.test.js` runs 12 fixture tests against `assess()` and
+`web/shared/eligibility.test.js` runs 13 fixture tests against `assess()` and
 `answerProblem()` in `web/shared/eligibility.js`, covering: a fully answered
 in-scope case with agreeing dates and an amount under the threshold returning
 `supported` with no reasons; each of the eight questions escalating on its own
 with the exact reason code and route; an `unknown` or missing answer, and an
 out-of-range answer value, all returning `needs_information`; a fired trigger
 alongside an unknown answer returning `escalate` with both reasons present; the
-invoice due date checked against the registered agreement deadline, including
-a same-UTC-day deadline counting as agreeing and an unreadable agreement
-returning `agreement_deadline_unreadable`; the high-value threshold escalating
-at the boundary and not one minor unit below it, and honoring a configured
-threshold; a missing, empty, or non-integer amount and a non-GBP currency both
-returning `needs_information`; an answer map with an unknown question id or an
+invoice due date checked against the registered agreement deadline, built from
+a local datetime the way the application creates one so the suite passes under
+any machine timezone, including a same-local-day deadline counting as agreeing
+and an unreadable agreement returning `agreement_deadline_unreadable`; a
+late-evening local deadline round-tripping to the same local date the
+application would store for it; the high-value threshold escalating at the
+boundary and not one minor unit below it, and honoring a configured threshold;
+a missing, empty, or non-integer amount and a non-GBP currency both returning
+`needs_information`; an answer map with an unknown question id or an
 out-of-range value rejected by `answerProblem`; an out-of-range agreement
-deadline and a non-numeric configured threshold both falling back safely
-rather than throwing; a frozen `REASONS` entry that a mutation attempt cannot
-change; and a fixture asserting no question prompt or reason summary states a
-legal position (`entitled`, `enforceable`, `you should`, `will win`, `owes
-you`, `barred`, and similar terms).
+deadline and a non-numeric or blank configured threshold both falling back
+safely rather than throwing; a frozen `REASONS` entry that a mutation attempt
+cannot change; and a fixture asserting no question prompt or reason summary
+states a legal position (`entitled`, `enforceable`, `you should`, `will win`,
+`owes you`, `barred`, and similar terms).
 
 `web/server/cases/store.test.js` gained two eligibility executions: saving
 answers, replacing them on a second save, and confirming a second operator can

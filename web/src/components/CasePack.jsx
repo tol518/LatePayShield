@@ -64,7 +64,7 @@ const OUTCOME_PRESENTATION = {
   escalate: {
     chip: 'chip--danger',
     title: 'Leaves the automated path',
-    detail: 'This case stops here. LatePay Shield offers source-grounded information and drafting support only, and takes no position on this case.',
+    detail: 'This case stops here. LatePay Shield is scoped to source-grounded information and drafting support, not case handling, and takes no position on this case.',
   },
 };
 

@@ -52,9 +52,9 @@ The exact external tools and URLs used to create this evidence are recorded in
   `PUT /api/cases/:id/eligibility` route saves answers, scoped to the owning
   operator, returning `404` for a missing or cross-operator case and `400` for
   an invalid answer map; `GET /api/cases/:id` now carries `eligibility` as
-  `{ answers, assessedAt }` or `null`. 12 fixture tests in
+  `{ answers, assessedAt }` or `null`. 13 fixture tests in
   `web/shared/eligibility.test.js`, 2 new store tests, and 1 new route test
-  pass, taking the complete web suite to 61 passing executions, and the
+  pass, taking the complete web suite to 62 passing executions, and the
   production build still succeeds. A "Eligibility and escalation" card now sits
   in the case detail below the live agreement evidence card: eight three-way
   radio groups with no preselected answer, and an outcome banner naming the

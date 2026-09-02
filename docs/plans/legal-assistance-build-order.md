@@ -24,7 +24,7 @@ not autonomously decide entitlement, strategy, enforceability or court action.
    implements the eight questions and the derived high-value and due-date-versus-deadline
    checks in deterministic code, with no model involvement. Answers persist in
    `case_eligibility`; the outcome is recomputed from those answers plus a live
-   Coston2 read on every case open and is never stored. 12 fixture tests, 2 store
+   Coston2 read on every case open and is never stored. 13 fixture tests, 2 store
    tests, and 1 route test pass, and a browser check covered the unanswered,
    supported, and dispute-escalation states plus persistence across a reload and
    the mismatch banner.

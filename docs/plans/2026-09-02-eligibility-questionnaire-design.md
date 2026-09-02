@@ -92,8 +92,9 @@ unit below it does not. The `VITE_` prefix is required because `assess` runs in
 the browser, and Vite exposes no other variables to the bundle.
 
 **Invoice due date versus contract deadline.** The case file's `invoiceDueDate`
-is compared against the UTC calendar date of the linked agreement's on-chain
-`dueAt`. A difference is surfaced as a blocking finding: which date governs is
+is compared against the local calendar date of the linked agreement's on-chain
+`dueAt`, read in the same convention the deadline was created in so the
+comparison is like against like. A difference is surfaced as a blocking finding: which date governs is
 a question for a human, and until it is settled the task 3 calculator has no
 defensible date to count from. This is the rule the build order names
 explicitly, and it is always visible in the outcome banner when it fires — never
@@ -239,8 +240,10 @@ operator has the on-chain deadline in view while answering.
    ignored.
 
 `web/server/cases/store.test.js` gains: saving answers, replacing them on a
-second save, rejecting an invalid answer map, returning `null` for a case owned
-by another operator, and the cascade delete leaving no orphan row.
+second save, rejecting an invalid answer map, and returning `null` for a case
+owned by another operator. `case_eligibility`'s `ON DELETE CASCADE` is declared
+in the schema but untested, because no case delete path exists anywhere in the
+application yet.
 
 A browser check confirms one full pass: answer the questionnaire on a saved
 case, save, reload, and see the persisted answers and the recomputed outcome,

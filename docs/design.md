@@ -114,9 +114,9 @@ model.
     not legal advice."
   - **More information needed** — "The questionnaire cannot be completed from
     what the case file records. Nothing downstream may rely on it yet."
-  - **Leaves the automated path** — "This case stops here. LatePay Shield
-    offers source-grounded information and drafting support only, and takes no
-    position on this case."
+  - **Leaves the automated path** — "This case stops here. LatePay Shield is
+    scoped to source-grounded information and drafting support, not case
+    handling, and takes no position on this case."
 - Every fired reason lists its fixed summary and its route's copy: "Needs a
   qualified adviser" for `professional_review`, "An operator can resolve this
   in the case file" for `operator_action`. A due-date-versus-deadline mismatch

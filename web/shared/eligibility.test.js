@@ -11,13 +11,24 @@ function clearAnswers(overrides = {}) {
   return { ...answers, ...overrides };
 }
 
+/**
+ * Seconds for a local datetime, the way AgreementCreator turns a
+ * `datetime-local` field into the on-chain `dueAt`. Building fixtures this way
+ * keeps the suite passing under any machine timezone, because the module under
+ * test reads the deadline back in local time too.
+ */
+function localSeconds(year, month, day, hour = 0, minute = 0) {
+  return Math.floor(new Date(year, month - 1, day, hour, minute, 0, 0).getTime() / 1000);
+}
+
 function clearContext(overrides = {}) {
   return {
     invoiceAmountMinorUnits: '125000',
     invoiceCurrency: 'GBP',
     invoiceDueDate: '2026-09-29',
-    // 2026-09-29T00:00:00Z, so the invoice date and the registered deadline agree.
-    agreementDueAtSeconds: Math.floor(Date.parse('2026-09-29T00:00:00Z') / 1000),
+    // Local midnight on 29 September 2026, so the invoice date and the
+    // registered deadline agree regardless of the machine's timezone.
+    agreementDueAtSeconds: localSeconds(2026, 9, 29),
     ...overrides,
   };
 }
@@ -89,9 +100,9 @@ test('the invoice due date is checked against the registered agreement deadline'
   assert.deepEqual(codes(mismatch), ['due_date_mismatch']);
   assert.equal(mismatch.reasons[0].route, 'operator_action');
 
-  // A deadline later in the same UTC day is the same date, not a mismatch.
+  // A deadline later the same local day is the same date, not a mismatch.
   const sameDay = assess(clearAnswers(), clearContext({
-    agreementDueAtSeconds: Math.floor(Date.parse('2026-09-29T17:45:00Z') / 1000),
+    agreementDueAtSeconds: localSeconds(2026, 9, 29, 17, 45),
   }));
   assert.equal(sameDay.outcome, 'supported');
 
@@ -99,6 +110,18 @@ test('the invoice due date is checked against the registered agreement deadline'
   const unreadable = assess(clearAnswers(), clearContext({ agreementDueAtSeconds: undefined }));
   assert.equal(unreadable.outcome, 'needs_information');
   assert.deepEqual(codes(unreadable), ['agreement_deadline_unreadable']);
+});
+
+test('a late-evening local deadline round-trips to the invoice date the application stores for it', () => {
+  // Mirrors AgreementCreator and the AI extraction default: the deadline's
+  // date portion becomes invoiceDueDate, and the full local instant becomes
+  // agreementDueAtSeconds, in whatever timezone the operator is in.
+  const assessment = assess(clearAnswers(), clearContext({
+    invoiceDueDate: '2026-09-30',
+    agreementDueAtSeconds: localSeconds(2026, 9, 30, 23, 59),
+  }));
+  assert.equal(assessment.outcome, 'supported');
+  assert.deepEqual(codes(assessment), []);
 });
 
 test('the high-value threshold escalates at the boundary and not below it', () => {
@@ -148,13 +171,15 @@ test('an out-of-range agreement deadline needs information rather than throwing'
   assert.deepEqual(codes(assessment), ['agreement_deadline_unreadable']);
 });
 
-test('a non-numeric high-value threshold falls back to the default rather than throwing', () => {
-  const assessment = assess(clearAnswers(), clearContext({
-    invoiceAmountMinorUnits: '5000000',
-    highValueThresholdMinorUnits: '50,000',
-  }));
-  assert.equal(assessment.outcome, 'escalate');
-  assert.deepEqual(codes(assessment), ['high_value']);
+test('a non-numeric or blank high-value threshold falls back to the default rather than throwing', () => {
+  for (const highValueThresholdMinorUnits of ['50,000', '']) {
+    const assessment = assess(clearAnswers(), clearContext({
+      invoiceAmountMinorUnits: '5000000',
+      highValueThresholdMinorUnits,
+    }));
+    assert.equal(assessment.outcome, 'escalate', `threshold ${JSON.stringify(highValueThresholdMinorUnits)} did not fall back.`);
+    assert.deepEqual(codes(assessment), ['high_value']);
+  }
 });
 
 test('mutating a REASONS entry does not change the classification', () => {
