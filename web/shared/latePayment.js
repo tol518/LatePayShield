@@ -160,6 +160,17 @@ function readLawInputs(lawInputs) {
   return { asOf, asOfDate: String(lawInputs.asOf).trim(), margin, dayCount, periods, bands };
 }
 
+/**
+ * Whether a lawInputs object is one the calculator can actually use.
+ *
+ * This is the same read `calculate` performs internally, exposed so a caller
+ * checking a candidate snapshot never has to keep a second copy of these
+ * rules in step with this module's.
+ */
+export function isUsableLawInputs(lawInputs) {
+  return readLawInputs(lawInputs) !== null;
+}
+
 function interestMinorUnits(debt, rateScaled, days, dayCount) {
   const numerator = debt * rateScaled * BigInt(days);
   const denominator = PERCENT_SCALE * 100n * BigInt(dayCount);

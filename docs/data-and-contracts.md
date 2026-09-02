@@ -222,12 +222,20 @@ from the stored answers and a fresh registry read every time a case is opened.
 `web/shared/latePayment.js` is the sole implementation. It is a pure ESM
 module — no route, no storage, no UI, no model involvement — imported
 unchanged wherever the local service and the browser bundle need it. It
-exports `calculate(caseFacts, lawInputs)`, the frozen `REASONS` catalogue, and
-`STALE_AFTER_DAYS` (`90`), the only number the module holds in code: it is
-this repository's own currency policy, not a fact about the law. No legal
-value — the margin over base rate, the reference rates, the fixed-compensation
-bands, the day-count basis — appears in the module; every one of them arrives
-in `lawInputs` (D-012).
+exports `calculate(caseFacts, lawInputs)`, `isUsableLawInputs(lawInputs)`, the
+frozen `REASONS` catalogue, and `STALE_AFTER_DAYS` (`90`), the only number the
+module holds in code: it is this repository's own currency policy, not a fact
+about the law. No legal value — the margin over base rate, the reference
+rates, the fixed-compensation bands, the day-count basis — appears in the
+module; every one of them arrives in `lawInputs` (D-012).
+
+`isUsableLawInputs` reports whether a candidate `lawInputs` object is one
+`calculate` can actually read, using the exact same internal reader
+`calculate` itself uses. `web/shared/lawSnapshot.js` imports it rather than
+keeping a second copy of these rules, so a reference period ending before it
+starts, two overlapping reference periods, or compensation bands that are out
+of order or missing an open top band can be caught at the snapshot level
+instead of only surfacing once `calculate` is asked to run.
 
 **`caseFacts`:**
 
@@ -305,8 +313,7 @@ imported unchanged by the local service and the browser bundle. It reads no
 file and no clock; callers supply the already-parsed
 `data/uk-law/snapshot.json`. It exports `SNAPSHOT_VERSION` (`1`),
 `ALLOWED_SOURCE_DOMAINS`, the frozen `PROBLEMS` catalogue,
-`validateSnapshot(snapshot)`, `toLawInputs(snapshot)`, and
-`snapshotAgeDays(snapshot, asAtDate)`.
+`validateSnapshot(snapshot)`, and `toLawInputs(snapshot)`.
 
 **Snapshot shape:**
 
@@ -314,17 +321,25 @@ file and no clock; callers supply the already-parsed
 |---|---|---|
 | `snapshotVersion` | integer | Must equal `SNAPSHOT_VERSION` exactly; a version this build was not written to read is refused rather than guessed at. |
 | `fetchedAt`, `nextRefreshDue` | ISO instant | When the snapshot was retrieved and when it is next due for refresh. |
-| `approvedBy` | string or `null` | Who approved the snapshot's values. `null` in the committed file. |
+| `approvedBy` | non-empty string or `null` | Who approved the snapshot's values. Must actually be of type `string`; `null` in the committed file. |
 | `approvedAt` | ISO instant or `null` | When approval happened. `null` in the committed file. |
-| `sources` | array | What was retrieved and when, each an allowlisted `https` URL. |
-| `facts` | array | Sourced legal values, each with `id`, `volatility`, `statement`, `values`, `citationIds`, and `asOf`. |
-| `conventions` | array | Calculation conventions the operator chose, each with `id`, `value`, `statement`, and `citationIds` — which must be empty, because a convention carrying a citation is a fact filed in the wrong place. |
-| `citations` | array | Resolves every fact's and convention's `citationIds`, each an `id`, `title`, and an allowlisted `https` `url`. |
+| `sources` | non-empty array | What was retrieved and when. Each entry must be an allowlisted `https` URL with `status` exactly `"ok"`. |
+| `facts` | array of unique `id` | Sourced legal values, each with `id`, `volatility`, `statement`, `values`, `citationIds`, and `asOf`. |
+| `conventions` | array of unique `id` | Calculation conventions the operator chose, each with `id`, `value`, `statement`, and `citationIds` — which must be empty, because a convention carrying a citation is a fact filed in the wrong place. |
+| `citations` | array of unique `id` | Resolves every fact's and convention's `citationIds`, each an `id`, `title`, and an allowlisted `https` `url`. |
 
 While `approvedBy`/`approvedAt` are unset the snapshot is unusable:
 `validateSnapshot` reports `not_approved`, `toLawInputs` returns `null`, and
 the calculator reports `law_inputs_missing`. Retrieving a value makes it
 sourced; only a person setting the approval fields makes it approved (D-013).
+`approvedBy` is checked by type, not by whether it stringifies to something
+non-empty, so a snapshot carrying `"approvedBy": false` is refused exactly
+like one carrying no `approvedBy` at all.
+
+A second `facts`, `conventions`, or `citations` entry sharing an id with an
+earlier one is refused (`snapshot_malformed`) rather than silently replacing
+it: `validateSnapshot` reads each list into an id-keyed map, and a duplicate
+id would otherwise let whichever entry was listed last decide the value.
 
 **The three required facts and one required convention** the calculator
 needs:
@@ -342,14 +357,14 @@ of them makes the whole snapshot unusable — there is no partial-use state:
 | `code` | Meaning |
 |---|---|
 | `snapshot_missing` | No snapshot object was supplied. |
-| `snapshot_malformed` | Not an object, or a required top-level list is missing or the wrong type. |
+| `snapshot_malformed` | Not an object, or a required top-level list is missing, the wrong type, empty (`sources`), carries a duplicate `id` (`facts`, `conventions`, `citations`), or a source whose `status` is not `"ok"`. |
 | `unsupported_version` | `snapshotVersion` is not a version this module reads. |
-| `not_approved` | `approvedBy` or `approvedAt` is unset. |
+| `not_approved` | `approvedBy` is not a non-empty string, or `approvedAt` is unset. |
 | `dates_unusable` | A timestamp or `asOf` value is not a real date. |
 | `citation_unresolved` | A fact cites a citation id the snapshot does not define. |
 | `citation_source_not_allowlisted` | A citation or source URL is not an `https` address on the allowlist. |
 | `fact_missing` | A required fact id is absent. |
-| `fact_malformed` | A fact's shape, volatility, or values are unusable. |
+| `fact_malformed` | A fact's shape, volatility, or values are unusable, or the three required facts' combined values are not ones the calculator can actually use — a reference period ending before it starts, overlapping reference periods, or compensation bands out of order or missing an open top band. |
 | `convention_missing` | A required convention id is absent. |
 | `convention_malformed` | A required convention's value is unusable. |
 | `convention_has_citation` | A convention carries a citation, so it is a sourced fact filed in the wrong place. |
@@ -368,9 +383,7 @@ the shape `calculate` consumes: `asOf`, `marginPercent`, `dayCountBasis`,
 across the three required facts, because a snapshot is only as fresh as its
 stalest fact and the calculator's staleness gate should see that rather than
 the newest one. Staleness itself is not reimplemented here — the calculator
-already owns `STALE_AFTER_DAYS` — and `snapshotAgeDays(snapshot, asAtDate)`
-only exposes the whole-day age between `fetchedAt` and a supplied date,
-returning `null` for an unreadable date.
+already owns `STALE_AFTER_DAYS` and reads it against the `asOf` it is given.
 
 The committed `data/uk-law/snapshot.json` holds the three required facts, the
 `day-count-basis` convention (value `365`, no citation, because no primary

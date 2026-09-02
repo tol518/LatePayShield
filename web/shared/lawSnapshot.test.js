@@ -5,7 +5,6 @@ import {
   ALLOWED_SOURCE_DOMAINS,
   PROBLEMS,
   SNAPSHOT_VERSION,
-  snapshotAgeDays,
   toLawInputs,
   validateSnapshot,
 } from './lawSnapshot.js';
@@ -92,10 +91,18 @@ test('an approved, well-formed snapshot is usable with no problems', () => {
 });
 
 test('a snapshot with no approval is refused, and that is the only problem', () => {
-  for (const overrides of [{ approvedBy: null }, { approvedAt: null }, { approvedBy: '   ' }]) {
+  for (const overrides of [
+    { approvedBy: null },
+    { approvedAt: null },
+    { approvedBy: '   ' },
+    { approvedBy: false },
+    { approvedBy: 0 },
+    { approvedBy: true },
+    { approvedBy: {} },
+  ]) {
     const result = validateSnapshot(snapshot(overrides));
-    assert.equal(result.usable, false);
-    assert.deepEqual(codes(result), ['not_approved']);
+    assert.equal(result.usable, false, JSON.stringify(overrides));
+    assert.deepEqual(codes(result), ['not_approved'], JSON.stringify(overrides));
   }
 });
 
@@ -137,6 +144,22 @@ test('a required fact that is absent or unusable is refused', () => {
     ['statutory-interest-reference-rate', { values: { referencePeriods: [{ start: '2026-02-30', end: '2026-06-30', baseRatePercent: '3.75' }] } }],
     ['fixed-sum-compensation', { values: { bands: [{ upToMinorUnits: null, amountMinorUnits: '70.00' }] } }],
     ['statutory-interest-margin', { volatility: 'occasional' }],
+    ['statutory-interest-reference-rate', { values: { referencePeriods: [
+      { start: '2026-07-01', end: '2026-01-01', baseRatePercent: '3.75' },
+    ] } }],
+    ['statutory-interest-reference-rate', { values: { referencePeriods: [
+      { start: '2026-01-01', end: '2026-07-15', baseRatePercent: '4.75' },
+      { start: '2026-07-01', end: '2026-12-31', baseRatePercent: '4.25' },
+    ] } }],
+    ['fixed-sum-compensation', { values: { bands: [
+      { upToMinorUnits: '999999', amountMinorUnits: '7000' },
+      { upToMinorUnits: '99999', amountMinorUnits: '4000' },
+      { upToMinorUnits: null, amountMinorUnits: '10000' },
+    ] } }],
+    ['fixed-sum-compensation', { values: { bands: [
+      { upToMinorUnits: '99999', amountMinorUnits: '4000' },
+      { upToMinorUnits: '999999', amountMinorUnits: '7000' },
+    ] } }],
   ]) {
     const result = validateSnapshot(withFact(id, changes));
     assert.equal(result.usable, false, `${id} ${JSON.stringify(changes)}`);
@@ -221,11 +244,38 @@ test('an unusable snapshot yields no law inputs at all', () => {
   }
 });
 
-test('snapshot age is whole days and refuses an unreal date', () => {
-  assert.equal(snapshotAgeDays(snapshot(), '2026-09-02'), 0);
-  assert.equal(snapshotAgeDays(snapshot(), '2026-12-01'), 90);
-  assert.equal(snapshotAgeDays(snapshot(), '2026-02-30'), null);
-  assert.equal(snapshotAgeDays(undefined, '2026-09-02'), null);
+test('a duplicate id among facts, conventions, or citations is refused rather than silently overwritten', () => {
+  const base = snapshot();
+
+  const dupFact = validateSnapshot(snapshot({
+    facts: [...base.facts, { ...base.facts[0], values: { marginPercent: '99' } }],
+  }));
+  assert.equal(dupFact.usable, false);
+  assert.ok(codes(dupFact).includes('snapshot_malformed'));
+
+  const dupConvention = validateSnapshot(snapshot({
+    conventions: [...base.conventions, { ...base.conventions[0] }],
+  }));
+  assert.equal(dupConvention.usable, false);
+  assert.ok(codes(dupConvention).includes('snapshot_malformed'));
+
+  const dupCitation = validateSnapshot(snapshot({
+    citations: [...base.citations, { ...base.citations[0] }],
+  }));
+  assert.equal(dupCitation.usable, false);
+  assert.ok(codes(dupCitation).includes('snapshot_malformed'));
+});
+
+test('sources must be present and every one must have actually resolved', () => {
+  const empty = validateSnapshot(snapshot({ sources: [] }));
+  assert.equal(empty.usable, false);
+  assert.ok(codes(empty).includes('snapshot_malformed'));
+
+  const failed = validateSnapshot(snapshot({
+    sources: snapshot().sources.map((source) => ({ ...source, status: 'failed' })),
+  }));
+  assert.equal(failed.usable, false);
+  assert.ok(codes(failed).includes('snapshot_malformed'));
 });
 
 test('every problem code has a summary and none states a legal conclusion', () => {

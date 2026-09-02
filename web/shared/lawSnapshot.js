@@ -10,6 +10,8 @@
  * service and the browser bundle. Callers supply the parsed snapshot.
  */
 
+import { isUsableLawInputs } from './latePayment.js';
+
 export const SNAPSHOT_VERSION = 1;
 
 export const ALLOWED_SOURCE_DOMAINS = Object.freeze([
@@ -30,7 +32,6 @@ const VOLATILITY = Object.freeze(['high', 'medium', 'low']);
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const PERCENT = /^\d{1,3}(\.\d{1,4})?$/;
 const WHOLE_MINOR_UNITS = /^\d+$/;
-const DAY_MS = 86_400_000;
 
 export const PROBLEMS = Object.freeze({
   snapshot_missing: 'No snapshot was supplied, so no legal values are available.',
@@ -136,6 +137,18 @@ function indexById(entries) {
   return new Map(entries.map((entry) => [text(entry?.id), entry]));
 }
 
+/** Whether two or more entries share the same non-empty id. */
+function hasDuplicateId(entries) {
+  const seen = new Set();
+  for (const entry of entries) {
+    const id = text(entry?.id);
+    if (!id) continue;
+    if (seen.has(id)) return true;
+    seen.add(id);
+  }
+  return false;
+}
+
 /**
  * Check a snapshot end to end.
  *
@@ -169,7 +182,15 @@ export function validateSnapshot(snapshot) {
   if (parseInstant(snapshot.fetchedAt) === null || parseInstant(snapshot.nextRefreshDue) === null) {
     add('dates_unusable');
   }
-  if (!text(snapshot.approvedBy) || parseInstant(snapshot.approvedAt) === null) add('not_approved');
+  // A boolean or a number reads as a non-empty string once String() gets hold
+  // of it, so only an actual string counts as a person's name here.
+  const approvedByOk = typeof snapshot.approvedBy === 'string' && snapshot.approvedBy.trim().length > 0;
+  if (!approvedByOk || parseInstant(snapshot.approvedAt) === null) add('not_approved');
+
+  if (snapshot.sources.length === 0) add('snapshot_malformed');
+  if (hasDuplicateId(snapshot.citations)) add('snapshot_malformed');
+  if (hasDuplicateId(snapshot.facts)) add('snapshot_malformed');
+  if (hasDuplicateId(snapshot.conventions)) add('snapshot_malformed');
 
   const citations = indexById(snapshot.citations);
   for (const citation of snapshot.citations) {
@@ -185,6 +206,7 @@ export function validateSnapshot(snapshot) {
       continue;
     }
     if (parseInstant(source.fetchedAt) === null) add('dates_unusable');
+    if (source.status !== 'ok') add('snapshot_malformed');
   }
 
   const facts = indexById(snapshot.facts);
@@ -218,10 +240,33 @@ export function validateSnapshot(snapshot) {
   for (const id of REQUIRED_FACTS) if (!facts.has(id)) add('fact_missing');
   for (const id of REQUIRED_CONVENTIONS) if (!conventions.has(id)) add('convention_missing');
 
-  if (facts.has('statutory-interest-margin') && readMargin(facts) === null) add('fact_malformed');
-  if (facts.has('statutory-interest-reference-rate') && readPeriods(facts) === null) add('fact_malformed');
-  if (facts.has('fixed-sum-compensation') && readBands(facts) === null) add('fact_malformed');
-  if (conventions.has('day-count-basis') && readDayCount(conventions) === null) add('convention_malformed');
+  const margin = facts.has('statutory-interest-margin') ? readMargin(facts) : null;
+  const periods = facts.has('statutory-interest-reference-rate') ? readPeriods(facts) : null;
+  const bands = facts.has('fixed-sum-compensation') ? readBands(facts) : null;
+  const dayCount = conventions.has('day-count-basis') ? readDayCount(conventions) : null;
+
+  if (facts.has('statutory-interest-margin') && margin === null) add('fact_malformed');
+  if (facts.has('statutory-interest-reference-rate') && periods === null) add('fact_malformed');
+  if (facts.has('fixed-sum-compensation') && bands === null) add('fact_malformed');
+  if (conventions.has('day-count-basis') && dayCount === null) add('convention_malformed');
+
+  // Each field reads as individually well-shaped once it gets here, but the
+  // calculator also rejects combinations no single field check can see: an
+  // overlapping or backwards reference period, or bands out of order or
+  // missing an open top band. Asking `calculate`'s own reader whether the
+  // combination is usable is what keeps this file from ever drifting out of
+  // step with what the calculator actually accepts.
+  if (REQUIRED_FACTS.every((id) => facts.has(id)) && conventions.has('day-count-basis')
+    && margin !== null && periods !== null && bands !== null && dayCount !== null) {
+    const candidate = {
+      asOf: REQUIRED_FACTS.map((id) => text(facts.get(id).asOf)).sort()[0],
+      marginPercent: margin,
+      dayCountBasis: dayCount,
+      referencePeriods: periods,
+      compensationBands: bands,
+    };
+    if (!isUsableLawInputs(candidate)) add('fact_malformed');
+  }
 
   return done();
 }
@@ -244,12 +289,4 @@ export function toLawInputs(snapshot) {
     referencePeriods: readPeriods(facts),
     compensationBands: readBands(facts),
   };
-}
-
-/** Whole days between the snapshot's retrieval date and a supplied date. */
-export function snapshotAgeDays(snapshot, asAtDate) {
-  const fetched = parseDate(text(snapshot?.fetchedAt).slice(0, 10));
-  const asAt = parseDate(asAtDate);
-  if (fetched === null || asAt === null) return null;
-  return Math.round((asAt - fetched) / DAY_MS);
 }

@@ -556,7 +556,7 @@ The agent never says "as of today" or "currently". It says "as of {snapshotAsOf}
 ### 7.6 What exists and what does not
 
 `data/uk-law/snapshot.json` and its validator/bridge, `web/shared/lawSnapshot.js`
-(`validateSnapshot`, `toLawInputs`, `snapshotAgeDays`), are now implemented and
+(`validateSnapshot`, `toLawInputs`), are now implemented and
 tested — see [`data-and-contracts.md`](../data-and-contracts.md) and
 [`testing-and-demo.md`](../testing-and-demo.md). The committed snapshot holds
 the three required facts and the `day-count-basis` convention, each traced to

@@ -96,9 +96,8 @@ The exact external tools and URLs used to create this evidence are recorded in
 - The approved UK-law source library now exists: a committed, versioned
   snapshot at `data/uk-law/snapshot.json` and a pure validator/bridge,
   `web/shared/lawSnapshot.js`, exporting `SNAPSHOT_VERSION`,
-  `ALLOWED_SOURCE_DOMAINS`, `PROBLEMS`, `validateSnapshot(snapshot)`,
-  `toLawInputs(snapshot)`, and `snapshotAgeDays(snapshot, asAtDate)`. It reads
-  no file and no clock; callers supply the parsed snapshot, so the same module
+  `ALLOWED_SOURCE_DOMAINS`, `PROBLEMS`, `validateSnapshot(snapshot)`, and
+  `toLawInputs(snapshot)`. It reads no file and no clock; callers supply the parsed snapshot, so the same module
   serves the local service and the browser bundle. Twelve problem codes cover
   every way a snapshot can be unusable, and any one of them disables the whole
   file — there is no partial-use state. The committed snapshot holds three
@@ -111,10 +110,9 @@ The exact external tools and URLs used to create this evidence are recorded in
   `www.legislation.gov.uk` passes and `legislation.gov.uk.example.com` does
   not. `toLawInputs` takes the oldest required fact's `asOf`, because a
   snapshot is only as fresh as its stalest fact; staleness itself is not
-  reimplemented here, the calculator already owns that gate, and
-  `snapshotAgeDays` only exposes the age. `npm --prefix web test` passes 93 of
-  93 executions, the 16 new fixtures in `web/shared/lawSnapshot.test.js` plus
-  the 77 that already passed, and
+  reimplemented here, the calculator already owns that gate.
+  `npm --prefix web test` passes 94 of 94 executions, the 17 new fixtures in
+  `web/shared/lawSnapshot.test.js` plus the 77 that already passed, and
   `grep -nE "require\(|from 'node:|import\.meta|fetch\(|Date\.now|new Date\(\)" web/shared/lawSnapshot.js`
   returns no output. An end-to-end fixture drives the calculator from the
   committed snapshot with approval injected into a copy, producing 1891 pence

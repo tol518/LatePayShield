@@ -133,28 +133,39 @@ produces no figures in the running application until task 4 supplies approved
 
 ### UK-law snapshot
 
-`web/shared/lawSnapshot.test.js` runs 16 fixture tests against
-`validateSnapshot()`, `toLawInputs()`, and `snapshotAgeDays()` in
-`web/shared/lawSnapshot.js`, covering: a well-formed, approved fixture
-validating with no problems; a snapshot missing `approvedBy` or `approvedAt`,
-or carrying a blank `approvedBy`, refused with `not_approved` as the sole
-problem; a missing, non-object, array, or empty snapshot refused before
-anything else is read; every `snapshotVersion` other than the one this build
-reads refused with `unsupported_version`; a fact citing a citation id the
-snapshot does not define refused with `citation_unresolved`; a required fact
-that is absent or carries an unusable margin, empty or malformed reference
-periods, an impossible period date, unusable compensation bands, or an
-unrecognised volatility, all refused with `fact_missing` or `fact_malformed`;
-a required convention that is absent, cited, or carries an unusable value,
-refused with `convention_missing`, `convention_has_citation`, or
-`convention_malformed`; the exact allowlist membership and both accepted
-`https` hosts and rejected `http`, subdomain-lookalike, and substring-lookalike
-URLs; an unreal date anywhere in the snapshot refused with `dates_unusable`; a
-usable snapshot mapping to exactly the five keys `calculate` consumes, with
-`asOf` equal to the oldest required fact's date; every unusable snapshot
-shape yielding `null` from `toLawInputs`; `snapshotAgeDays` counting whole
-days and returning `null` for an unreal date; and every problem code carrying
-a summary that states no legal conclusion.
+`web/shared/lawSnapshot.test.js` runs 17 fixture tests against
+`validateSnapshot()` and `toLawInputs()` in `web/shared/lawSnapshot.js`,
+covering: a well-formed, approved fixture validating with no problems; a
+snapshot missing `approvedBy` or `approvedAt`, carrying a blank `approvedBy`,
+or carrying a non-string `approvedBy` (`false`, `0`, `true`, an object),
+refused with `not_approved` as the sole problem; a missing, non-object,
+array, or empty snapshot refused before anything else is read; every
+`snapshotVersion` other than the one this build reads refused with
+`unsupported_version`; a fact citing a citation id the snapshot does not
+define refused with `citation_unresolved`; a required fact that is absent or
+carries an unusable margin, empty or malformed reference periods, an
+impossible period date, a reference period ending before it starts,
+overlapping reference periods, unusable compensation bands, descending or
+gapless-top compensation bands, or an unrecognised volatility, all refused
+with `fact_missing` or `fact_malformed`; a required convention that is
+absent, cited, or carries an unusable value, refused with
+`convention_missing`, `convention_has_citation`, or `convention_malformed`; a
+duplicate id among facts, conventions, or citations refused with
+`snapshot_malformed` rather than the later entry silently overwriting the
+earlier one; an empty `sources` list or a source whose `status` is not `ok`
+refused with `snapshot_malformed`; the exact allowlist membership and both
+accepted `https` hosts and rejected `http`, subdomain-lookalike, and
+substring-lookalike URLs; an unreal date anywhere in the snapshot refused
+with `dates_unusable`; a usable snapshot mapping to exactly the five keys
+`calculate` consumes, with `asOf` equal to the oldest required fact's date;
+every unusable snapshot shape yielding `null` from `toLawInputs`; and every
+problem code carrying a summary that states no legal conclusion.
+
+The reference-period and compensation-band cross-checks (overlap, ordering,
+the open top band) are not reimplemented here: `validateSnapshot` builds the
+candidate `lawInputs` and asks `latePayment.js`'s exported
+`isUsableLawInputs()` whether the calculator can actually use them, so the
+two modules can never drift apart on what counts as valid.
 
 Two more tests load the real committed `data/uk-law/snapshot.json` from disk
 rather than a fixture: one asserts it is structurally correct and its only
@@ -169,7 +180,7 @@ interest, and 7000 pence of fixed compensation. A companion test confirms the
 `calculate()` reports `law_inputs_missing` with no figures — the actual
 running state of the repository today.
 
-`npm --prefix web test` passes 93 of 93 executions, these 16 plus the 77 that
+`npm --prefix web test` passes 94 of 94 executions, these 17 plus the 77 that
 already passed. A purity check,
 `grep -nE "require\(|from 'node:|import\.meta|fetch\(|Date\.now|new Date\(\)" web/shared/lawSnapshot.js`,
 returns no output, confirming the module reads no clock, no file, and imports
@@ -186,6 +197,27 @@ period mapping, section 6 of the 1998 Act confirming it sets no rate itself,
 and the Bank of England Bank Rate page confirming 3.75 per cent at both
 reference dates. No mismatch was found.
 
+The two figures the snapshot depends on most directly were checked against
+this exact wording:
+
+- Section 5A of the Late Payment of Commercial Debts (Interest) Act 1998
+  (<https://www.legislation.gov.uk/ukpga/1998/20/section/5A>): "for a debt
+  less than £1000, the sum of £40", "for a debt of £1000 or more, but less
+  than £10,000, the sum of £70", and "for a debt of £10,000 or more, the sum
+  of £100".
+- Article 4 of the Late Payment of Commercial Debts (Rate of Interest) (No.
+  3) Order 2002 (<https://www.legislation.gov.uk/uksi/2002/1675/made>): "The
+  rate of interest for the purposes of the Late Payment of Commercial Debts
+  (Interest) Act 1998 shall be 8 per cent per annum over the official
+  dealing rate in force on the 30th June (in respect of interest which
+  starts to run between 1st July and 31st December) or the 31st December (in
+  respect of interest which starts to run between 1st January and 30th June)
+  immediately before the day on which statutory interest starts to run".
+
+Both match the snapshot's `fixed-sum-compensation` bands and
+`statutory-interest-margin`/`statutory-interest-reference-rate` facts
+exactly.
+
 A reviewer also ran an **adversarial sweep** against the URL allowlist —
 userinfo, an uppercase host, a port, a homoglyph, a punycode subdomain, and
 non-`https` schemes — and found no way past it.
@@ -201,8 +233,8 @@ which is an operational refresh requirement, not a defect.
 
 ### Web application and local AI
 
-`cd web && npm test` now runs 77 focused executions. Five document-parser
-fixtures cover selectable PDF text, ordinary XML, namespace-qualified UBL,
+`cd web && npm test` runs the complete focused suite for the web application.
+Five document-parser fixtures cover selectable PDF text, ordinary XML, namespace-qualified UBL,
 currency attributes, file-size/type boundaries, malformed PDFs, and rejection
 of XML DTD/entity declarations. The existing 11 S1 validator executions and
 the payment/browser-library executions remain green. Seven case-file
@@ -295,10 +327,10 @@ The `main` workflow for merge commit `e459042` completed successfully on 25 Augu
 | Agreement lifecycle | Live Coston2 agreement | Creation `0xf25f...43df`, agreement `2`, start ledger `20283755`, deadline `1787913245` | Created before its payment, so the evidence window is honest rather than back-fitted. |
 | FDC non-payment proof | Real proof accepted by the contract | Coston2 request `0xbcfb...7493`; voting round `1438645`; submission `0xab0d...068e` | Agreement `3` reads back as `OverdueVerified` with evidence ID `0x6881...14c1`. Searched ledgers `20284260` to `20284354` exclusive, above `1999999` drops, destination tag `2026002`. |
 | Additional paid-path record | Recorded live testnet evidence | Agreement `4`; XRPL `397A2598...B264B47A`; round `1438816`; Coston2 `0xf7ba...e781` | `evidence/coston2-paid-agreement-4.json` records `PaidVerified` and evidence ID `0x795b...ee7c`. |
-| Local web application | Local tests, production build, local-model smoke, and case-file browser QA | `web/` (`npm test`, `npm run build`); synthetic UBL request through `POST /api/ai/extractions`; temporary SQLite case linked to live agreement `8` | React UI and loopback API compile; 77 focused executions pass, including eight HTTP access-policy regressions against the real service, thirteen deterministic eligibility fixtures and fifteen late-payment calculator fixtures. A UBL request returned a schema-valid local-model extraction. A confirmed case and communication note persisted while XRPL/FDC status remained a live Coston2 read. The browser-triggered FDC job has not been independently recorded as a complete GUI run. |
+| Local web application | Local tests, production build, local-model smoke, and case-file browser QA | `web/` (`npm test`, `npm run build`); synthetic UBL request through `POST /api/ai/extractions`; temporary SQLite case linked to live agreement `8` | React UI and loopback API compile; the complete focused suite passes, including eight HTTP access-policy regressions against the real service, thirteen deterministic eligibility fixtures and fifteen late-payment calculator fixtures. A UBL request returned a schema-valid local-model extraction. A confirmed case and communication note persisted while XRPL/FDC status remained a live Coston2 read. The browser-triggered FDC job has not been independently recorded as a complete GUI run. |
 | Eligibility questionnaire | Local deterministic tests, route test, and browser QA | `web/shared/eligibility.test.js`, `web/server/cases/store.test.js`, `web/server/access.test.js` | Thirteen fixture tests, two store tests, and one route test pass. A Chrome browser check, run twice against case files linked to live Coston2 agreements, observed the unanswered, supported, and dispute-escalation states, persistence across a reload, the mismatch banner, and unsaved answers surviving an unrelated save. The `agreement_deadline_unreadable` path was never observed in the browser; every case used had a readable agreement. |
 | Late-payment calculator | Local deterministic tests only | `web/shared/latePayment.test.js` | 15 fixture tests pass, taking `npm --prefix web test` to 77 of 77 executions. No browser check exists because this task built no route, no storage, and no UI. The calculator produces no figures in the running application until task 4 supplies approved `lawInputs`. |
-| UK-law snapshot library | Local deterministic tests, plus independent manual source and allowlist verification | `web/shared/lawSnapshot.test.js`, `data/uk-law/snapshot.json` | 16 fixture tests pass, taking `npm --prefix web test` to 93 of 93 executions, including an end-to-end fixture driving the calculator from the committed snapshot. A reviewer independently checked every cited figure against its source text on 2 September 2026 and found no mismatch, and separately swept the URL allowlist for bypasses and found none. **The committed snapshot is not approved**: `approvedBy`/`approvedAt` are `null`, so the calculator reports `law_inputs_missing` and produces no figures in the running application. No browser check exists because this task built no UI, and no `law:refresh` fetcher or regression suite was built (task 9). |
+| UK-law snapshot library | Local deterministic tests, plus independent manual source and allowlist verification | `web/shared/lawSnapshot.test.js`, `data/uk-law/snapshot.json` | 17 fixture tests pass, taking `npm --prefix web test` to 94 of 94 executions, including an end-to-end fixture driving the calculator from the committed snapshot. A reviewer independently checked every cited figure against its source text on 2 September 2026 and found no mismatch, and separately swept the URL allowlist for bypasses and found none. **The committed snapshot is not approved**: `approvedBy`/`approvedAt` are `null`, so the calculator reports `law_inputs_missing` and produces no figures in the running application. No browser check exists because this task built no UI, and no `law:refresh` fetcher or regression suite was built (task 9). |
 | FTSO | Optional/planned | None | Not implemented. |
 
 ## External verification runbook
