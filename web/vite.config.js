@@ -1,16 +1,17 @@
-import { defineConfig } from 'vite';
+import { defineConfig, normalizePath } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
-const canonicalTerms = fileURLToPath(new URL('../lib/canonical.js', import.meta.url));
+const canonicalTerms = normalizePath(fileURLToPath(new URL('../lib/canonical.js', import.meta.url)));
 
 function canonicalTermsInterop() {
   return {
     name: 'latepay-canonical-commonjs-interop',
     enforce: 'pre',
     transform(source, id) {
-      if (id.split('?')[0] !== canonicalTerms) return null;
+      // Vite reports ids with forward slashes, so an unnormalized Windows path never matches here.
+      if (normalizePath(id.split('?')[0]) !== canonicalTerms) return null;
 
       const transformed = source
         .replace(
