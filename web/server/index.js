@@ -589,7 +589,7 @@ const server = http.createServer(async (request, response) => {
     }
     const eligibilityMatch = request.method === 'PUT' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})\/eligibility$/i);
     if (eligibilityMatch) {
-      const { answers } = await readJson(request);
+      const { answers } = await readJson(request) ?? {};
       const caseFile = caseStore.saveEligibility(eligibilityMatch[1], answers, operatorId);
       if (!caseFile) sendJson(response, 404, { error: 'Case file not found.' });
       else sendJson(response, 200, { case: caseFile });

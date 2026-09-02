@@ -269,6 +269,15 @@ test('eligibility answers are authorized, scoped, and validated', async (t) => {
   assert.equal((await save(OTHER_TOKEN, { debtDisputed: 'no' })).status, 404);
   assert.equal((await save(OPERATOR_TOKEN, { isTheClaimStrong: 'yes' })).status, 400);
 
+  // A literal null body parses successfully, so the route has to survive it
+  // rather than fall through to the generic failure code.
+  const nullBody = await fetch(`${service.origin}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: 'null',
+  });
+  assert.equal(nullBody.status, 400);
+
   const saved = await save(OPERATOR_TOKEN, { debtDisputed: 'no', payerBasedInUk: 'yes' });
   assert.equal(saved.status, 200);
   assert.deepEqual((await saved.json()).case.eligibility.answers, { debtDisputed: 'no', payerBasedInUk: 'yes' });
