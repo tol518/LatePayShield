@@ -140,6 +140,32 @@ test('an answer map with an unknown question or an out-of-range value is rejecte
   assert.deepEqual(ANSWER_VALUES, ['yes', 'no', 'unknown']);
 });
 
+test('an out-of-range agreement deadline needs information rather than throwing', () => {
+  const assessment = assess(clearAnswers(), clearContext({
+    agreementDueAtSeconds: 18446744073709551615,
+  }));
+  assert.equal(assessment.outcome, 'needs_information');
+  assert.deepEqual(codes(assessment), ['agreement_deadline_unreadable']);
+});
+
+test('a non-numeric high-value threshold falls back to the default rather than throwing', () => {
+  const assessment = assess(clearAnswers(), clearContext({
+    invoiceAmountMinorUnits: '5000000',
+    highValueThresholdMinorUnits: '50,000',
+  }));
+  assert.equal(assessment.outcome, 'escalate');
+  assert.deepEqual(codes(assessment), ['high_value']);
+});
+
+test('mutating a REASONS entry does not change the classification', () => {
+  assert.throws(() => {
+    REASONS.dispute.outcome = 'supported';
+  });
+  const assessment = assess(clearAnswers({ debtDisputed: 'yes' }), clearContext());
+  assert.equal(assessment.outcome, 'escalate');
+  assert.deepEqual(codes(assessment), ['dispute']);
+});
+
 test('no question or reason states a legal position', () => {
   const forbidden = /\b(entitled|enforceable|unenforceable|you should|will win|owes you|barred)\b/i;
   for (const question of QUESTIONS) {

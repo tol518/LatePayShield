@@ -73,7 +73,7 @@ export const QUESTIONS = Object.freeze([
     escalatingAnswer: 'yes',
     reason: 'limitation_risk',
   },
-]);
+].map(Object.freeze));
 
 /**
  * `route` separates the two kinds of stop: one needs a qualified adviser, the
@@ -119,7 +119,7 @@ export const REASONS = Object.freeze({
   high_value: {
     route: 'professional_review',
     outcome: 'escalate',
-    summary: 'The invoice total is at or above this workspace configured high-value threshold.',
+    summary: "The invoice total is at or above this workspace's configured high-value threshold.",
   },
   invoice_not_delivered: {
     route: 'operator_action',
@@ -153,6 +153,11 @@ export const REASONS = Object.freeze({
   },
 });
 
+// Object.freeze is shallow, so each entry is frozen too: assess reads an
+// entry's outcome live on every call, and a stray write would quietly change
+// what a reason code routes to for the rest of the process.
+Object.values(REASONS).forEach(Object.freeze);
+
 function reason(code) {
   const { route, summary } = REASONS[code];
   return { code, route, summary };
@@ -179,7 +184,9 @@ export function answerProblem(answers) {
 function deadlineDate(seconds) {
   const value = Number(seconds);
   if (!Number.isFinite(value) || value <= 0) return null;
-  return new Date(value * 1000).toISOString().slice(0, 10);
+  const date = new Date(value * 1000);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
 }
 
 /**
@@ -190,11 +197,14 @@ function derivedReasons(context) {
   const reasons = [];
   const amount = String(context.invoiceAmountMinorUnits ?? '').trim();
   const currency = String(context.invoiceCurrency ?? '').trim().toUpperCase();
-  const threshold = Number(context.highValueThresholdMinorUnits ?? DEFAULT_HIGH_VALUE_THRESHOLD_MINOR_UNITS);
+  const configuredThreshold = Number(context.highValueThresholdMinorUnits);
+  const threshold = Number.isInteger(configuredThreshold) && configuredThreshold >= 0
+    ? configuredThreshold
+    : DEFAULT_HIGH_VALUE_THRESHOLD_MINOR_UNITS;
 
   if (!WHOLE_MINOR_UNITS.test(amount)) reasons.push(reason('invoice_amount_missing'));
   else if (currency && currency !== 'GBP') reasons.push(reason('currency_not_gbp'));
-  else if (BigInt(amount) >= BigInt(Math.trunc(threshold))) reasons.push(reason('high_value'));
+  else if (BigInt(amount) >= BigInt(threshold)) reasons.push(reason('high_value'));
 
   const deadline = deadlineDate(context.agreementDueAtSeconds);
   const invoiceDueDate = String(context.invoiceDueDate ?? '').trim();
