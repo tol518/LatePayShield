@@ -40,10 +40,11 @@ The exact external tools and URLs used to create this evidence are recorded in
   console errors or horizontal overflow.
 - A deterministic eligibility questionnaire and escalation module,
   `web/shared/eligibility.js`, now routes cases without any model involvement.
-  It exports eight questions plus five derived and completeness checks
-  (a high-value threshold read from `VITE_ELIGIBILITY_HIGH_VALUE_MINOR_UNITS`,
-  and an invoice-due-date-versus-agreement-deadline comparison against a live
-  Coston2 read) across fourteen reason codes on the `professional_review` and
+  It exports eight questions plus three derived and completeness checks
+  (an unanswered-question check, a high-value threshold read from
+  `VITE_ELIGIBILITY_HIGH_VALUE_MINOR_UNITS`, and an
+  invoice-due-date-versus-agreement-deadline comparison against a live Coston2
+  read) across fourteen reason codes on the `professional_review` and
   `operator_action` routes. Answers persist one row per case in
   `case_eligibility` (`case_id`, `answers_json`, `assessed_at`); no outcome is
   ever stored, because `assess()` recomputes it in the browser on every read
