@@ -587,6 +587,14 @@ const server = http.createServer(async (request, response) => {
       else sendJson(response, 201, { case: caseFile });
       return;
     }
+    const eligibilityMatch = request.method === 'PUT' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})\/eligibility$/i);
+    if (eligibilityMatch) {
+      const { answers } = await readJson(request);
+      const caseFile = caseStore.saveEligibility(eligibilityMatch[1], answers, operatorId);
+      if (!caseFile) sendJson(response, 404, { error: 'Case file not found.' });
+      else sendJson(response, 200, { case: caseFile });
+      return;
+    }
     if (request.method === 'POST' && url.pathname === '/api/fdc/payments') {
       await createFdcJob(request, response);
       return;

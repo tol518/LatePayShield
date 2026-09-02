@@ -244,3 +244,49 @@ test('the policy checks run before any route or body is considered', () => {
     'local-operator',
   );
 });
+
+test('eligibility answers are authorized, scoped, and validated', async (t) => {
+  const service = await startServer();
+  t.after(() => service.stop());
+
+  const created = await fetch(`${service.origin}/api/cases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: JSON.stringify(confirmedCase(105)),
+  });
+  const caseId = (await created.json()).case.id;
+  const path = `/api/cases/${caseId}/eligibility`;
+
+  function save(token, answers) {
+    return fetch(`${service.origin}${path}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(token ? { [TOKEN_HEADER]: token } : {}) },
+      body: JSON.stringify({ answers }),
+    });
+  }
+
+  assert.equal((await save(null, { debtDisputed: 'no' })).status, 401);
+  assert.equal((await save(OTHER_TOKEN, { debtDisputed: 'no' })).status, 404);
+  assert.equal((await save(OPERATOR_TOKEN, { isTheClaimStrong: 'yes' })).status, 400);
+
+  const saved = await save(OPERATOR_TOKEN, { debtDisputed: 'no', payerBasedInUk: 'yes' });
+  assert.equal(saved.status, 200);
+  assert.deepEqual((await saved.json()).case.eligibility.answers, { debtDisputed: 'no', payerBasedInUk: 'yes' });
+
+  // The service returns answers only. It cannot compute an outcome, because it
+  // never reads the agreement deadline from Coston2.
+  const detail = await fetch(`${service.origin}/api/cases/${caseId}`, { headers: { [TOKEN_HEADER]: OPERATOR_TOKEN } });
+  const eligibility = (await detail.json()).case.eligibility;
+  assert.deepEqual(Object.keys(eligibility).sort(), ['answers', 'assessedAt']);
+
+  // A cross-origin write is refused on the headers alone.
+  const crossOrigin = await fetch(`${service.origin}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://mallory.example', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: JSON.stringify({ answers: { debtDisputed: 'yes' } }),
+  });
+  assert.equal(crossOrigin.status, 403);
+
+  const unchanged = await fetch(`${service.origin}/api/cases/${caseId}`, { headers: { [TOKEN_HEADER]: OPERATOR_TOKEN } });
+  assert.equal((await unchanged.json()).case.eligibility.answers.debtDisputed, 'no');
+});
