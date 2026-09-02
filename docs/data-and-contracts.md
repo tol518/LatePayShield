@@ -234,7 +234,7 @@ in `lawInputs` (D-012).
 | Field | Shape | Meaning |
 |---|---|---|
 | `eligibilityOutcome` | string | The outcome string `web/shared/eligibility.js` `assess()` returns. The module takes it as a plain parameter rather than importing that module. |
-| `debtMinorUnits` | decimal string | Whole, positive minor units. |
+| `debtMinorUnits` | decimal string | Whole, positive minor units. Must be a string; a `Number` is rejected (`debt_amount_unusable`) rather than converted, since a large enough `Number` loses precision before it ever reaches `BigInt`. |
 | `currency` | string | Must be `GBP`. |
 | `dueDate` | `YYYY-MM-DD` | The invoice due date. |
 | `asAtDate` | `YYYY-MM-DD` | Supplied by the caller; the module never reads a clock. |
@@ -245,9 +245,9 @@ in `lawInputs` (D-012).
 |---|---|---|
 | `asOf` | `YYYY-MM-DD` | Date the supplied law values were current. |
 | `marginPercent` | decimal string | Margin over the base rate. |
-| `dayCountBasis` | positive integer | Day-count denominator for simple interest. |
-| `referencePeriods` | array of `{ start, end, baseRatePercent }` | Each a `YYYY-MM-DD` pair and a decimal-string rate; `end` must not be before `start`. |
-| `compensationBands` | array of `{ upToMinorUnits, amountMinorUnits }` | Ordered bands; the last entry's `upToMinorUnits` must be `null` (an open top band), or the inputs are rejected. |
+| `dayCountBasis` | positive integer | Day-count denominator for simple interest. Must actually be of type `number`; a boolean, an array, or a numeric string is rejected (`law_inputs_invalid`) rather than coerced, since coercing `true` to `1` would silently change the interest by a factor of the true denominator. |
+| `referencePeriods` | array of `{ start, end, baseRatePercent }` | Each a `YYYY-MM-DD` pair and a decimal-string rate; `end` must not be before `start`. No two periods may overlap, or the inputs are rejected (`law_inputs_invalid`); the periods are matched with `.find()`, so an overlap would let list order silently decide the rate. |
+| `compensationBands` | array of `{ upToMinorUnits, amountMinorUnits }` | Ordered bands; the last entry's `upToMinorUnits` must be `null` (an open top band), and every earlier entry's `upToMinorUnits` must be a strictly ascending value, or the inputs are rejected. The bands are matched with `.find()`, so an out-of-order list would let the first listed match win instead of the smallest band that fits. |
 
 **Result shape.** Every result carries exactly these twelve keys on every
 path, so a caller can never read a figure out of a refusal: `status`,
@@ -257,6 +257,10 @@ path, so a caller can never read a figure out of a refusal: `status`,
 always present so no consumer can render a figure without its date.
 `additionalMinorUnits` is interest plus fixed compensation and deliberately
 excludes the debt itself — a single combined figure would read as a demand.
+When interest is withheld (`law_inputs_stale`), `additionalMinorUnits` is
+`null` rather than the fixed compensation alone: reporting the fixed amount by
+itself would read as though the withheld interest were zero, and a caller
+must not be able to read a number out of a partial refusal.
 
 **Status and reason codes.** `status` is exactly `calculated` or
 `unavailable`. Nine reason codes:
@@ -270,7 +274,7 @@ excludes the debt itself — a single combined figure would read as a demand.
 | `currency_not_gbp` | `unavailable` | The debt is not in sterling. |
 | `debt_amount_unusable` | `unavailable` | The debt is not a whole, positive number of minor units. |
 | `dates_unusable` | `unavailable` | The due date or the as-at date is not a real calendar date. |
-| `law_inputs_stale` | `calculated` | The law inputs are older than `STALE_AFTER_DAYS`; interest is withheld but fixed compensation is still computed. |
+| `law_inputs_stale` | `calculated` | The law inputs are older than `STALE_AFTER_DAYS`; interest is withheld but fixed compensation is still computed. `additionalMinorUnits` is `null` on this path. |
 | `not_yet_late` | `calculated` | The as-at date is on or before the due date; `daysLate` is `0` and `additionalMinorUnits` is `'0'`. |
 
 **Money.** Whole minor units, carried across the boundary as decimal strings

@@ -105,7 +105,11 @@ function readLawInputs(lawInputs) {
 
   const asOf = parseDate(lawInputs.asOf);
   const margin = parsePercent(lawInputs.marginPercent);
-  const dayCount = Number(lawInputs.dayCountBasis);
+  // Only a genuine number is accepted here: Number() would also coerce a
+  // boolean, an array, or a numeric string, and dayCountBasis is a divisor, so
+  // a coerced value would silently scale the interest by whatever factor
+  // slipped through.
+  const dayCount = typeof lawInputs.dayCountBasis === 'number' ? lawInputs.dayCountBasis : NaN;
   if (asOf === null || margin === null) return null;
   if (!Number.isInteger(dayCount) || dayCount <= 0) return null;
 
@@ -117,6 +121,14 @@ function readLawInputs(lawInputs) {
     const baseRate = parsePercent(period?.baseRatePercent);
     if (start === null || end === null || baseRate === null || end < start) return null;
     periods.push({ start, end, baseRate, startDate: String(period.start).trim(), endDate: String(period.end).trim() });
+  }
+  // An overlap would let .find() silently pick whichever period was listed
+  // first, so two periods claiming the same date are refused rather than
+  // resolved by list order.
+  for (let i = 1; i < periods.length; i += 1) {
+    for (let j = 0; j < i; j += 1) {
+      if (periods[i].start <= periods[j].end && periods[j].start <= periods[i].end) return null;
+    }
   }
 
   if (!Array.isArray(lawInputs.compensationBands) || lawInputs.compensationBands.length === 0) return null;
@@ -136,6 +148,14 @@ function readLawInputs(lawInputs) {
   // Without an open top band a large debt would silently fall through to no
   // compensation at all, which is worse than refusing to read the inputs.
   if (bands.at(-1).upTo !== null) return null;
+  // Bands are searched with .find(), so an out-of-order list would let the
+  // first listed match win instead of the smallest one that fits.
+  for (let i = 1; i < bands.length; i += 1) {
+    const previous = bands[i - 1].upTo;
+    const current = bands[i].upTo;
+    if (previous === null) return null;
+    if (current !== null && current <= previous) return null;
+  }
 
   return { asOf, asOfDate: String(lawInputs.asOf).trim(), margin, dayCount, periods, bands };
 }
@@ -149,9 +169,16 @@ function interestMinorUnits(debt, rateScaled, days, dayCount) {
 
 /** Every result carries the same keys, so no caller can read a stray figure. */
 function result(fields) {
+  const reasons = fields.reasons ?? [];
+  // The catalogue already says which reasons are refusals; deriving status
+  // from it here means a reason's status can never drift from what a result
+  // actually reports.
+  const status = reasons.some((entry) => REASONS[entry.code].status === 'unavailable')
+    ? 'unavailable'
+    : 'calculated';
   return {
-    status: 'unavailable',
-    reasons: [],
+    status,
+    reasons,
     dueDate: null,
     asAtDate: null,
     daysLate: null,
@@ -178,8 +205,11 @@ export function calculate(caseFacts, lawInputs) {
 
   const dueMs = parseDate(caseFacts?.dueDate);
   const asAtMs = parseDate(caseFacts?.asAtDate);
-  const debtText = String(caseFacts?.debtMinorUnits ?? '').trim();
-  const debtUsable = WHOLE_MINOR_UNITS.test(debtText) && BigInt(debtText) > 0n;
+  // Only a string is accepted: a Number large enough to lose precision would
+  // otherwise pass String() and the digits check while already being wrong.
+  const debtRaw = caseFacts?.debtMinorUnits;
+  const debtText = typeof debtRaw === 'string' ? debtRaw.trim() : '';
+  const debtUsable = typeof debtRaw === 'string' && WHOLE_MINOR_UNITS.test(debtText) && BigInt(debtText) > 0n;
   const currency = String(caseFacts?.currency ?? '').trim().toUpperCase();
   const law = lawInputs === undefined || lawInputs === null ? undefined : readLawInputs(lawInputs);
 
@@ -203,7 +233,7 @@ export function calculate(caseFacts, lawInputs) {
 
   if (echo.daysLate === 0) {
     add('not_yet_late');
-    return result({ ...echo, status: 'calculated', reasons, additionalMinorUnits: '0' });
+    return result({ ...echo, reasons, additionalMinorUnits: '0' });
   }
 
   // The debt becomes late the day after it fell due, and that date decides
@@ -220,12 +250,14 @@ export function calculate(caseFacts, lawInputs) {
 
   if (daysBetween(law.asOf, asAtMs) > STALE_AFTER_DAYS) {
     add('law_inputs_stale');
+    // additionalMinorUnits is interest plus fixed compensation everywhere
+    // else, so leaving it as the fixed amount alone here would read as if the
+    // withheld interest were zero. Null says plainly that a figure is missing.
     return result({
       ...echo,
-      status: 'calculated',
       reasons,
       fixedCompensationMinorUnits: band.amount,
-      additionalMinorUnits: band.amount,
+      additionalMinorUnits: null,
     });
   }
 
@@ -233,7 +265,6 @@ export function calculate(caseFacts, lawInputs) {
   const amount = interestMinorUnits(debt, rateScaled, echo.daysLate, law.dayCount);
   return result({
     ...echo,
-    status: 'calculated',
     reasons,
     interest: {
       ratePercent: formatPercent(rateScaled),

@@ -194,9 +194,12 @@ values may not.
 When `asOf` is more than 90 days before the as-at date, the statutory rate is
 treated as too perishable to state: `interest` is `null` and
 `law_inputs_stale` is reported, while the fixed compensation still computes
-because it is not a high-volatility fact. The result stays `calculated`, and
-`lawAsOf` is present on every output so no consumer can render a figure without
-its date.
+because it is not a high-volatility fact. `additionalMinorUnits` is `null` too,
+rather than the fixed compensation alone, because that field is defined as
+interest plus fixed compensation everywhere else — reporting the fixed amount
+by itself would read as though the withheld interest were zero. The result
+stays `calculated`, and `lawAsOf` is present on every output so no consumer can
+render a figure without its date.
 
 ## Tests
 
@@ -219,7 +222,8 @@ its date.
 11. A non-sterling currency, and an unusable debt amount.
 12. A due date of `2026-02-30` and other impossible dates.
 13. Determinism: the same inputs twice produce a deep-equal result.
-14. No reason summary states a legal conclusion, checked the way the
+14. Every result carries the same twelve keys regardless of path.
+15. No reason summary states a legal conclusion, checked the way the
     eligibility suite checks its own.
 
 ## Documents to update on completion

@@ -144,7 +144,10 @@ test('withholds interest past the staleness threshold but still gives compensati
   assert.deepEqual(codes(stale), ['law_inputs_stale']);
   assert.equal(stale.interest, null);
   assert.equal(stale.fixedCompensationMinorUnits, '7000');
-  assert.equal(stale.additionalMinorUnits, '7000');
+  // additionalMinorUnits is interest plus fixed compensation everywhere else,
+  // so reporting the fixed amount alone here would read as if the withheld
+  // interest were zero. It must be null, not a number that looks complete.
+  assert.equal(stale.additionalMinorUnits, null);
   assert.equal(stale.lawAsOf, '2026-08-16');
 });
 
@@ -210,6 +213,22 @@ test('refuses law inputs it cannot read', () => {
     }), 'law_inputs_invalid'],
     ['zero day count', lawInputs({ dayCountBasis: 0 }), 'law_inputs_invalid'],
     ['fractional day count', lawInputs({ dayCountBasis: 365.25 }), 'law_inputs_invalid'],
+    ['day count as a boolean', lawInputs({ dayCountBasis: true }), 'law_inputs_invalid'],
+    ['day count as an array', lawInputs({ dayCountBasis: [365] }), 'law_inputs_invalid'],
+    ['day count as a numeric string', lawInputs({ dayCountBasis: '365' }), 'law_inputs_invalid'],
+    ['bands listed out of ascending order', lawInputs({
+      compensationBands: [
+        { upToMinorUnits: '999999', amountMinorUnits: '7000' },
+        { upToMinorUnits: '99999', amountMinorUnits: '4000' },
+        { upToMinorUnits: null, amountMinorUnits: '10000' },
+      ],
+    }), 'law_inputs_invalid'],
+    ['overlapping reference periods', lawInputs({
+      referencePeriods: [
+        { start: '2026-01-01', end: '2026-07-15', baseRatePercent: '4.75' },
+        { start: '2026-07-01', end: '2026-12-31', baseRatePercent: '4.25' },
+      ],
+    }), 'law_inputs_invalid'],
   ];
 
   for (const [label, input, expected] of cases) {
@@ -229,6 +248,7 @@ test('refuses case facts it cannot use', () => {
     ['debt in major units', { debtMinorUnits: '1250.00' }, 'debt_amount_unusable'],
     ['zero debt', { debtMinorUnits: '0' }, 'debt_amount_unusable'],
     ['negative debt', { debtMinorUnits: '-100' }, 'debt_amount_unusable'],
+    ['debt as a number', { debtMinorUnits: 125000 }, 'debt_amount_unusable'],
     ['impossible due date', { dueDate: '2026-02-30' }, 'dates_unusable'],
     ['missing as-at date', { asAtDate: '' }, 'dates_unusable'],
     ['non-date', { dueDate: 'next Tuesday' }, 'dates_unusable'],
