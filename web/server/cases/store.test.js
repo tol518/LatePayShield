@@ -116,3 +116,42 @@ test('refuses any case operation with no authorized operator', () => {
     store.close();
   }
 });
+
+test('stores, replaces, and scopes eligibility answers', () => {
+  const store = new CaseStore({ databasePath: ':memory:' });
+  try {
+    const created = store.createCase(confirmedCase(), OPERATOR);
+    assert.equal(created.eligibility, null);
+
+    const saved = store.saveEligibility(created.id, { debtDisputed: 'no', payerBasedInUk: 'yes' }, OPERATOR);
+    assert.deepEqual(saved.eligibility.answers, { debtDisputed: 'no', payerBasedInUk: 'yes' });
+    assert.match(saved.eligibility.assessedAt, /^\d{4}-\d{2}-\d{2}T/);
+
+    // Saving again replaces the single answer set rather than appending one.
+    const replaced = store.saveEligibility(created.id, { debtDisputed: 'unknown' }, OPERATOR);
+    assert.deepEqual(replaced.eligibility.answers, { debtDisputed: 'unknown' });
+    assert.deepEqual(store.getCase(created.id, OPERATOR).eligibility.answers, { debtDisputed: 'unknown' });
+
+    // No outcome is persisted; the row holds answers and a timestamp only.
+    assert.deepEqual(Object.keys(replaced.eligibility).sort(), ['answers', 'assessedAt']);
+
+    assert.equal(store.saveEligibility(created.id, { debtDisputed: 'no' }, OTHER_OPERATOR), null);
+    assert.deepEqual(store.getCase(created.id, OPERATOR).eligibility.answers, { debtDisputed: 'unknown' });
+  } finally {
+    store.close();
+  }
+});
+
+test('rejects an eligibility answer map it cannot trust', () => {
+  const store = new CaseStore({ databasePath: ':memory:' });
+  try {
+    const created = store.createCase(confirmedCase(), OPERATOR);
+    for (const answers of [{ isTheClaimStrong: 'yes' }, { debtDisputed: 'probably' }, 'yes', null]) {
+      assert.throws(() => store.saveEligibility(created.id, answers, OPERATOR), CaseInputError);
+    }
+    assert.equal(store.getCase(created.id, OPERATOR).eligibility, null);
+    assert.throws(() => store.saveEligibility(created.id, { debtDisputed: 'no' }), /authorized operator ID is required/);
+  } finally {
+    store.close();
+  }
+});

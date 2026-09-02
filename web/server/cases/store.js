@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { DEFAULT_OPERATOR_ID } from '../access.js';
+import { answerProblem } from '../../shared/eligibility.js';
 
 const DEFAULT_DATABASE_PATH = fileURLToPath(new URL('../../data/cases.sqlite', import.meta.url));
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -146,7 +147,7 @@ function mapCommunication(row) {
   };
 }
 
-function mapCase(row, communications = undefined) {
+function mapCase(row, communications = undefined, eligibility = undefined) {
   const result = {
     id: row.id,
     ownerId: row.owner_id,
@@ -167,6 +168,14 @@ function mapCase(row, communications = undefined) {
     communicationCount: Number(row.communication_count ?? communications?.length ?? 0),
   };
   if (communications) result.communications = communications;
+  // Only the detail read carries eligibility, and it carries answers only: the
+  // outcome is a function of the current rules and a live agreement read, so
+  // storing one would let a rules change leave a stale verdict behind.
+  if (communications) {
+    result.eligibility = eligibility
+      ? { answers: parseJsonObject(eligibility.answers_json), assessedAt: eligibility.assessed_at }
+      : null;
+  }
   return result;
 }
 
@@ -207,6 +216,11 @@ export class CaseStore {
       );
       CREATE INDEX IF NOT EXISTS case_communications_case_date
         ON case_communications(case_id, occurred_at DESC);
+      CREATE TABLE IF NOT EXISTS case_eligibility (
+        case_id TEXT PRIMARY KEY REFERENCES case_files(id) ON DELETE CASCADE,
+        answers_json TEXT NOT NULL,
+        assessed_at TEXT NOT NULL
+      );
     `);
     this.#addOwnerColumn();
     this.database.exec('CREATE INDEX IF NOT EXISTS case_files_owner ON case_files(owner_id, updated_at DESC)');
@@ -250,7 +264,10 @@ export class CaseStore {
     const communications = this.database.prepare(`
       SELECT * FROM case_communications WHERE case_id = ? ORDER BY occurred_at DESC, created_at DESC
     `).all(id).map(mapCommunication);
-    return mapCase(row, communications);
+    const eligibility = this.database.prepare(
+      'SELECT answers_json, assessed_at FROM case_eligibility WHERE case_id = ?',
+    ).get(id);
+    return mapCase(row, communications, eligibility);
   }
 
   createCase(input, ownerId) {
@@ -292,6 +309,22 @@ export class CaseStore {
         id, case_id, occurred_at, channel, direction, subject, summary, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, caseId, value.occurredAt, value.channel, value.direction, value.subject, value.summary, now);
+    this.database.prepare('UPDATE case_files SET updated_at = ? WHERE id = ? AND owner_id = ?').run(now, caseId, owner);
+    return this.getCase(caseId, owner);
+  }
+
+  saveEligibility(caseId, answers, ownerId) {
+    const owner = requiredOwnerId(ownerId);
+    if (!this.getCase(caseId, owner)) return null;
+    const problem = answerProblem(answers);
+    if (problem) throw new CaseInputError(problem);
+    const now = new Date().toISOString();
+    this.database.prepare(`
+      INSERT INTO case_eligibility (case_id, answers_json, assessed_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(case_id) DO UPDATE
+        SET answers_json = excluded.answers_json, assessed_at = excluded.assessed_at
+    `).run(caseId, JSON.stringify(answers), now);
     this.database.prepare('UPDATE case_files SET updated_at = ? WHERE id = ? AND owner_id = ?').run(now, caseId, owner);
     return this.getCase(caseId, owner);
   }
