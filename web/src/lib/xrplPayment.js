@@ -1,3 +1,5 @@
+import { apiFetch } from './apiRequest.js';
+
 const RIPPLE_EPOCH_UNIX_OFFSET = 946684800;
 export const XAMAN_VALIDATION_ATTEMPTS = 45;
 export const XAMAN_VALIDATION_INTERVAL_MS = 3_000;
@@ -64,7 +66,7 @@ export async function fetchAndValidateXrplPayment(hash, criteria) {
   // The browser cannot reliably call public XRPL RPC nodes due to CORS. The
   // same-origin service proxies this read-only request; it never signs or
   // submits the transaction itself.
-  const response = await fetch(`/api/xrpl/transactions/${normalizedHash}`);
+  const response = await apiFetch(`/api/xrpl/transactions/${normalizedHash}`);
 
   if (!response.ok) throw new Error(`XRPL Testnet returned HTTP ${response.status}.`);
   const payload = await response.json();

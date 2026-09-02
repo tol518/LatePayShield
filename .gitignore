@@ -17,6 +17,9 @@ coverage.json
 .next/
 out/
 dist/
+web/data/*.sqlite
+web/data/*.sqlite-shm
+web/data/*.sqlite-wal
 
 # evidence/ IS committed on purpose: real testnet identifiers are the demo fallback.
 # Scripts must never write seeds or keys into it.

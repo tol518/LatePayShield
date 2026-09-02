@@ -88,6 +88,56 @@ Record durable product, architecture, security, data, and delivery decisions. Ap
 
 **Consequence:** Swapping the model or its runner is a `.env` change. Any future skill adds a route and a validator in `web/server/ai/`, never a fetch from a component.
 
+## D-009 - Case facts persist only after human confirmation
+
+**Date:** 2 September 2026
+**Status:** Accepted for the local prototype
+
+**Decision:** Use a local SQLite case file keyed to one Coston2 agreement. Store
+human-confirmed structured invoice facts, bounded source quotes, a source
+fingerprint, and human-entered communication notes. Do not persist raw invoice
+text or uploaded bytes in the first slice.
+
+**Reason:** Case administration needs continuity across restarts, while model
+output and browser state must not become payment or legal truth. The existing
+contract is already the authority for agreement outcomes.
+
+**Consequence:** The local LLM may prefill an unconfirmed case draft, but only an
+explicit confirmation can write it. The UI joins the saved agreement ID to a
+fresh Coston2 read for status and XRPL/FDC evidence. Document storage,
+encryption, authentication, and multi-user access remain later work.
+
+## D-010 - The local web service authenticates an operator instead of trusting reachability
+
+**Date:** 2 September 2026
+**Status:** Accepted for the local prototype
+
+**Decision:** Gate every `/api/` route of `web/server/index.js` on an operator
+token presented in `X-LatePay-Operator-Token`, and scope every case read and
+write to the `owner_id` of the authenticated operator. Apply a network policy to
+every request, the served page included: in a loopback deployment the peer, the
+`Host` header, and any `Origin` header must be canonical loopback values, so a
+cross-origin write is refused on the header alone whatever its `Content-Type`.
+Refuse to bind a non-loopback `XAMAN_SERVER_HOST` unless
+`WEB_AUTHENTICATED_DEPLOYMENT=true`, `WEB_OPERATOR_TOKENS`, and
+`WEB_ALLOWED_ORIGINS` are all configured.
+
+**Reason:** The case routes previously treated network reachability as
+permission, so any client that could reach the port could read invoice, party,
+and communication data or forge a case
+([`security/missing-case-api-access-control.md`](security/missing-case-api-access-control.md)).
+Locking the bind to loopback lowers exposure but is not an authorization
+decision, and a browser page from another origin does not need to reach the port
+itself to make the operator's browser do it.
+
+**Consequence:** In a loopback deployment the service generates one token per run
+and serves it in its own page as a meta tag, which only same-origin code can
+read; `npm run dev` shares one token between the service and the Vite dev
+server. A non-loopback deployment configures tokens explicitly and never puts
+one in the page. Case rows written before ownership existed are migrated to
+`local-operator`. Multi-user identity, sessions, and encryption at rest remain
+later work: one token means one operator, not a user account system.
+
 ## Entry format
 
 New entries contain an ID, title, date, status, decision, reason, and consequence. Include an official source and check date when a decision depends on time-sensitive event, network, or sponsor information.

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { standardAddressHash } from '@latepay/canonical';
-import { useRegistry } from '../hooks/useRegistry.js';
 import StatusChip from './StatusChip.jsx';
 import { CheckCircle, Warning, Progress, InfoCircle } from './Icons.jsx';
 import PaymentJourney from './PaymentJourney.jsx';
@@ -11,8 +10,8 @@ import { readPayerLink } from '../lib/payerLink.js';
 
 /* The only section on this page reading live chain state. Everything above it
    is explanatory copy; everything here came from Coston2 at page load. */
-export default function LiveRegistry({ refreshKey = 0 }) {
-  const { phase, registry, agreements, error } = useRegistry(refreshKey);
+export default function LiveRegistry({ state }) {
+  const { phase, registry, agreements, error } = state;
 
   return (
     <section className="section" id="registry">

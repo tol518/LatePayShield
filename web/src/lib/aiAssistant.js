@@ -8,6 +8,8 @@
  * human reads it in the form and registers the agreement (D-003).
  */
 
+import { apiFetch, describeApiFailure } from './apiRequest.js';
+
 /* Fields the assistant may prefill. The agreement's payment criteria are
  * deliberately absent: SKILLS.md §3.1 lists xrplDestination, destinationTag,
  * amountDrops and startLedger as values the model must never supply, and the
@@ -25,10 +27,10 @@ const FIELD_LABELS = {
 };
 
 async function request(path, options) {
-  const response = await fetch(path, options);
+  const response = await apiFetch(path, options);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(payload.error ?? `The assistant service returned HTTP ${response.status}.`);
+    const error = new Error(describeApiFailure(response.status, payload.error, 'The assistant service'));
     error.status = response.status;
     throw error;
   }

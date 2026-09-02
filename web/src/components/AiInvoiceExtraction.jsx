@@ -7,6 +7,7 @@ import {
   requestExtraction,
   toFormSuggestions,
 } from '../lib/aiAssistant.js';
+import { toCaseDraft } from '../lib/casePack.js';
 
 /* Optional first step of the prepare journey.
  *
@@ -59,7 +60,7 @@ export default function AiInvoiceExtraction({ onSuggest }) {
 
   function applySuggestions() {
     const suggestions = toFormSuggestions(result);
-    onSuggest?.(suggestions);
+    onSuggest?.({ ...suggestions, caseDraft: toCaseDraft(result) });
     // Wait for React to put the suggested values into the agreement form before
     // moving the user to the next step in the journey.
     window.requestAnimationFrame(() => {
