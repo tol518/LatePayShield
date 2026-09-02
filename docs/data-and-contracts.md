@@ -145,6 +145,74 @@ Local mock tests prove contract checks and transitions, not live FDC compatibili
 
 Future application types must be generated from the actual ABI and must preserve enum/event semantics rather than restating them independently.
 
+## Case storage
+
+`web/server/cases/store.js` owns a local SQLite database, independent of the
+canonical terms and the on-chain agreement above. It has not previously been
+documented here; this section records it alongside the new `case_eligibility`
+table it gained in this task.
+
+| Table | Key columns | Meaning |
+|---|---|---|
+| `case_files` | `id` (primary key), `owner_id`, `agreement_id` (unique), `invoice_number`, `supplier_name`, `payer_name`, `invoice_currency`, `invoice_amount_minor_units`, `invoice_due_date`, `payment_terms_text`, `invoice_source_name`, `invoice_source_sha256`, `source_quotes_json`, `facts_confirmed_at`, `created_at`, `updated_at` | One row per human-confirmed case, joined one-to-one to a Coston2 `agreement_id`. Raw invoice text is not stored. |
+| `case_communications` | `id`, `case_id` (references `case_files(id)` `ON DELETE CASCADE`), `occurred_at`, `channel`, `direction`, `subject`, `summary`, `created_at` | Human-entered communication timeline notes. |
+| `case_eligibility` | `case_id` (primary key, references `case_files(id)` `ON DELETE CASCADE`), `answers_json`, `assessed_at` | One row per case, replaced on every save. Holds the operator's answers to the eight `web/shared/eligibility.js` questions and nothing else — no outcome is stored (D-011). |
+
+All three tables are scoped by `owner_id` on `case_files`; every read and write
+resolves the case through `getCase(id, ownerId)` first, so an operator can
+neither read nor write another operator's rows.
+
+## Eligibility enumerations
+
+`web/shared/eligibility.js` is the sole implementation of the eligibility
+rules. It is imported unchanged by `web/server/cases/store.js` and by the
+browser bundle.
+
+**Answers** — exactly `yes`, `no`, `unknown`. `unknown` is a real answer, not a
+missing one.
+
+**Outcomes** — exactly `supported`, `needs_information`, `escalate`.
+`escalate` outranks `needs_information`: a fired trigger is a definite fact
+that more answers cannot soften, but the reasons list still carries every
+`needs_information` reason alongside it, so the precedence rule hides nothing.
+
+**Routes** — exactly `professional_review` (needs a qualified adviser) and
+`operator_action` (an operator can resolve it in the case file).
+
+**Reason codes** — fourteen, each contributing one outcome on one route:
+
+| `code` | `route` | Outcome contribution |
+|---|---|---|
+| `consumer_matter` | `professional_review` | `escalate` |
+| `cross_border` | `professional_review` | `escalate` |
+| `dispute` | `professional_review` | `escalate` |
+| `insolvency` | `professional_review` | `escalate` |
+| `court_proceedings` | `professional_review` | `escalate` |
+| `long_payment_terms` | `professional_review` | `escalate` |
+| `limitation_risk` | `professional_review` | `escalate` |
+| `high_value` | `professional_review` | `escalate` |
+| `invoice_not_delivered` | `operator_action` | `escalate` |
+| `unanswered_questions` | `operator_action` | `needs_information` |
+| `due_date_mismatch` | `operator_action` | `needs_information` |
+| `agreement_deadline_unreadable` | `operator_action` | `needs_information` |
+| `invoice_amount_missing` | `operator_action` | `needs_information` |
+| `currency_not_gbp` | `operator_action` | `needs_information` |
+
+`invoice_not_delivered` escalates but still routes to `operator_action`: the
+payment period may not have started, and the fix is to send the invoice, not
+to take advice.
+
+The high-value threshold defaults to `DEFAULT_HIGH_VALUE_THRESHOLD_MINOR_UNITS`
+(5,000,000 minor units, £50,000) and is overridable per workspace by
+`VITE_ELIGIBILITY_HIGH_VALUE_MINOR_UNITS`; a missing or non-integer value falls
+back to the default. The due-date check compares the case file's
+`invoiceDueDate` against the UTC calendar date of the linked agreement's
+on-chain `dueAt`; an agreement whose deadline cannot be read contributes
+`agreement_deadline_unreadable` rather than being treated as clear.
+
+No outcome is ever persisted (D-011): `assess(answers, context)` recomputes it
+from the stored answers and a fresh registry read every time a case is opened.
+
 ## Update triggers
 
 Update this file whenever canonical fields/order/normalization, hash/address encoding, storage, statuses, transitions, matching conditions, ABI, events, evidence ID semantics, or verifier trust changes.

@@ -60,9 +60,45 @@ re-encoding, leaf sensitivity to a single altered field, agreement of the respon
 - local chain ID `31337` permits the test seam;
 - chain ID `114` rejects a non-zero override for any deployer.
 
+### Eligibility questionnaire
+
+`web/shared/eligibility.test.js` runs 12 fixture tests against `assess()` and
+`answerProblem()` in `web/shared/eligibility.js`, covering: a fully answered
+in-scope case with agreeing dates and an amount under the threshold returning
+`supported` with no reasons; each of the eight questions escalating on its own
+with the exact reason code and route; an `unknown` or missing answer, and an
+out-of-range answer value, all returning `needs_information`; a fired trigger
+alongside an unknown answer returning `escalate` with both reasons present; the
+invoice due date checked against the registered agreement deadline, including
+a same-UTC-day deadline counting as agreeing and an unreadable agreement
+returning `agreement_deadline_unreadable`; the high-value threshold escalating
+at the boundary and not one minor unit below it, and honoring a configured
+threshold; a missing, empty, or non-integer amount and a non-GBP currency both
+returning `needs_information`; an answer map with an unknown question id or an
+out-of-range value rejected by `answerProblem`; an out-of-range agreement
+deadline and a non-numeric configured threshold both falling back safely
+rather than throwing; a frozen `REASONS` entry that a mutation attempt cannot
+change; and a fixture asserting no question prompt or reason summary states a
+legal position (`entitled`, `enforceable`, `you should`, `will win`, `owes
+you`, `barred`, and similar terms).
+
+`web/server/cases/store.test.js` gained two eligibility executions: saving
+answers, replacing them on a second save, and confirming a second operator can
+neither read nor overwrite them; and rejecting an untrusted answer map — an
+unknown question id, an out-of-range value, a non-object body, and `null` —
+each raising `CaseInputError` rather than being stored.
+
+`server/access.test.js` gained one execution covering
+`PUT /api/cases/:id/eligibility` end to end over HTTP: `401` with no token,
+`404` for another operator's case, `400` for an invalid answer map, `200` with
+the saved answers echoed back, and a `403` on a cross-origin `PUT` that leaves
+the previously saved answers unchanged. It also confirms `GET /api/cases/:id`
+returns `eligibility` as exactly `{ answers, assessedAt }`, and never returns
+an outcome, because the service cannot compute one.
+
 ### Web application and local AI
 
-`cd web && npm test` now runs 46 focused executions. Five document-parser
+`cd web && npm test` now runs 61 focused executions. Five document-parser
 fixtures cover selectable PDF text, ordinary XML, namespace-qualified UBL,
 currency attributes, file-size/type boundaries, malformed PDFs, and rejection
 of XML DTD/entity declarations. The existing 11 S1 validator executions and
@@ -115,6 +151,24 @@ and a narrow viewport were inspected with no horizontal overflow. Console
 messages came only from installed browser extensions; no application-owned
 warning or error was recorded.
 
+The eligibility questionnaire was checked in a real Chrome instance, driven
+through the Chrome DevTools MCP tools against `npm --prefix web run dev`, using
+case files linked to live Coston2 agreements. This was run twice. Observed:
+the panel renders below the live evidence card with no preselected answer; an
+unanswered questionnaire reports "More information needed" with the
+unanswered-questions reason; a fully answered in-scope case with a matching
+due date and an amount under the threshold reports "Inside the supported
+scope" with no reasons; answering yes to the dispute question reports "Leaves
+the automated path" with the dispute reason and the qualified-adviser route;
+answers and the recomputed outcome both survive a full page reload; and a case
+whose invoice due date differs from its agreement deadline shows the mismatch
+reason. The second pass also observed that unsaved answers survive saving an
+unrelated communication note, that switching cases loads each case's own
+answers, and that the unsaved-answers note appears and clears correctly. The
+`agreement_deadline_unreadable` path was not observed in either pass, because
+every case used had a readable Coston2 agreement; it is covered only by a
+unit test and by code reading.
+
 ## GitHub Actions
 
 The `CI` workflow runs on pushes to `main`, pull requests, and manual dispatch using Node 24:
@@ -138,7 +192,8 @@ The `main` workflow for merge commit `e459042` completed successfully on 25 Augu
 | Agreement lifecycle | Live Coston2 agreement | Creation `0xf25f...43df`, agreement `2`, start ledger `20283755`, deadline `1787913245` | Created before its payment, so the evidence window is honest rather than back-fitted. |
 | FDC non-payment proof | Real proof accepted by the contract | Coston2 request `0xbcfb...7493`; voting round `1438645`; submission `0xab0d...068e` | Agreement `3` reads back as `OverdueVerified` with evidence ID `0x6881...14c1`. Searched ledgers `20284260` to `20284354` exclusive, above `1999999` drops, destination tag `2026002`. |
 | Additional paid-path record | Recorded live testnet evidence | Agreement `4`; XRPL `397A2598...B264B47A`; round `1438816`; Coston2 `0xf7ba...e781` | `evidence/coston2-paid-agreement-4.json` records `PaidVerified` and evidence ID `0x795b...ee7c`. |
-| Local web application | Local tests, production build, local-model smoke, and case-file browser QA | `web/` (`npm test`, `npm run build`); synthetic UBL request through `POST /api/ai/extractions`; temporary SQLite case linked to live agreement `8` | React UI and loopback API compile; 46 focused executions pass, including seven HTTP access-policy regressions against the real service. A UBL request returned a schema-valid local-model extraction. A confirmed case and communication note persisted while XRPL/FDC status remained a live Coston2 read. The browser-triggered FDC job has not been independently recorded as a complete GUI run. |
+| Local web application | Local tests, production build, local-model smoke, and case-file browser QA | `web/` (`npm test`, `npm run build`); synthetic UBL request through `POST /api/ai/extractions`; temporary SQLite case linked to live agreement `8` | React UI and loopback API compile; 61 focused executions pass, including eight HTTP access-policy regressions against the real service and twelve deterministic eligibility fixtures. A UBL request returned a schema-valid local-model extraction. A confirmed case and communication note persisted while XRPL/FDC status remained a live Coston2 read. The browser-triggered FDC job has not been independently recorded as a complete GUI run. |
+| Eligibility questionnaire | Local deterministic tests, route test, and browser QA | `web/shared/eligibility.test.js`, `web/server/cases/store.test.js`, `web/server/access.test.js` | Twelve fixture tests, two store tests, and one route test pass. A Chrome browser check, run twice against case files linked to live Coston2 agreements, observed the unanswered, supported, and dispute-escalation states, persistence across a reload, the mismatch banner, and unsaved answers surviving an unrelated save. The `agreement_deadline_unreadable` path was never observed in the browser; every case used had a readable agreement. |
 | FTSO | Optional/planned | None | Not implemented. |
 
 ## External verification runbook

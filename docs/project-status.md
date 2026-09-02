@@ -38,6 +38,37 @@ The exact external tools and URLs used to create this evidence are recorded in
   displayed its `PaidVerified` status and evidence ID from Coston2, and appended a
   communication note. Desktop and narrow layouts had no application-owned
   console errors or horizontal overflow.
+- A deterministic eligibility questionnaire and escalation module,
+  `web/shared/eligibility.js`, now routes cases without any model involvement.
+  It exports eight questions plus five derived and completeness checks
+  (a high-value threshold read from `VITE_ELIGIBILITY_HIGH_VALUE_MINOR_UNITS`,
+  and an invoice-due-date-versus-agreement-deadline comparison against a live
+  Coston2 read) across fourteen reason codes on the `professional_review` and
+  `operator_action` routes. Answers persist one row per case in
+  `case_eligibility` (`case_id`, `answers_json`, `assessed_at`); no outcome is
+  ever stored, because `assess()` recomputes it in the browser on every read
+  from the saved answers and the agreement's on-chain `dueAt` (D-011). A new
+  `PUT /api/cases/:id/eligibility` route saves answers, scoped to the owning
+  operator, returning `404` for a missing or cross-operator case and `400` for
+  an invalid answer map; `GET /api/cases/:id` now carries `eligibility` as
+  `{ answers, assessedAt }` or `null`. 12 fixture tests in
+  `web/shared/eligibility.test.js`, 2 new store tests, and 1 new route test
+  pass, taking the complete web suite to 61 passing executions, and the
+  production build still succeeds. A "Eligibility and escalation" card now sits
+  in the case detail below the live agreement evidence card: eight three-way
+  radio groups with no preselected answer, and an outcome banner naming the
+  outcome and every fired reason. A Chrome browser check, run twice against
+  case files linked to live Coston2 agreements, observed the panel rendering
+  with no preselected answer, an unanswered questionnaire reporting "More
+  information needed", a fully in-scope case with a matching due date and an
+  amount under the threshold reporting "Inside the supported scope", a dispute
+  answer reporting "Leaves the automated path" with the qualified-adviser
+  route, answers and the recomputed outcome surviving a full page reload, a
+  mismatched due date showing the mismatch reason, unsaved answers surviving
+  an unrelated communication-note save, and each case loading its own answers
+  when switched. The `agreement_deadline_unreadable` path was never observed in
+  the browser, because every case used in the check had a readable Coston2
+  agreement; it is covered only by a unit test and by code reading.
 - The React interface now uses the selected blue business-finance workspace: persistent desktop navigation, an invoice-to-evidence progress path, a drag-and-drop PDF/XML/UBL preparation card, local-AI privacy messaging, a truthful agreement preview, and recent live Coston2 agreements. The rendered page was checked in Chrome at 1440 × 1024 and 390 × 844 with no application console warnings/errors or horizontal mobile overflow. The paste-text disclosure, input enablement, and sidebar anchor navigation were exercised; no wallet or model submission was made during this visual check.
 - The agreement form now reads the current XRPL Testnet ledger, generates a destination tag, and creates a non-custodial Xaman `SignIn` QR/deep link for the supplier's public receiving address. The live browser check reached Xaman's waiting-for-approval state with both generated fields populated, no application console errors, and no horizontal overflow at 390 px. User approval inside Xaman remains intentionally outside website custody.
 - Repository contains a Node 24/Hardhat protocol foundation and locked dependency manifest.
@@ -86,22 +117,22 @@ The exact external tools and URLs used to create this evidence are recorded in
 3. README's original “memo/reference matching” narrative exceeded the contract: the memo is captured in XRPL evidence but is not checked by `LatePayShield.sol`.
 4. `recordVerifiedNonPayment` pins the request to `expectedDrops - 1` on the stated assumption that the attestation matches payments strictly greater than the requested amount. The live verifier matches at or above it instead. The guard is still safe, because a payment of exactly `expectedDrops` continues to block an overdue verdict, but it is one drop wider than intended: a payment of exactly `expectedDrops - 1` also blocks it, so such an agreement can be recorded as neither paid nor overdue and its only exit is `markDisputed`. Correcting it means requesting `expectedDrops` instead, which changes the contract and needs a redeploy.
 5. The operator-hosted MLX generation worker exhausted Metal memory during a long invoice extraction. The endpoint remained reachable, but prompt-cache memory grew to 5.74 GB across 10 sequences and generation failed with `Insufficient Memory`. See [`ai/mlx-server-memory-diagnosis.md`](ai/mlx-server-memory-diagnosis.md) for recovery and the proposed operating limits. Until the Mac mini host is restarted and bounded, large AI extraction requests may time out or fail; manual entry remains available.
-6. The current registration form can accept a contract deadline earlier than
-   the invoice due date carried into the case file. The two dates remain visible,
-   but there is no mismatch warning or blocking confirmation yet. Treat this as
-   an eligibility/validation rule to address before legal calculations or
-   case-specific legal information are enabled.
+6. The current registration form can still accept a contract deadline earlier
+   than the invoice due date carried into the case file, and neither field
+   blocks confirmation. The eligibility questionnaire now surfaces that
+   mismatch, as the `due_date_mismatch` reason in its outcome banner, once a
+   case is opened, but registration itself still gives no warning at the point
+   the dates are entered.
 
 ## Next priorities
 
-1. Build the deterministic eligibility questionnaire and escalation rules. The
-   case-pack foundation is complete for the local prototype.
-2. Build and test the deterministic late-payment calculator.
-3. Create the approved, versioned UK-law source library with citation and
+1. Build and test the deterministic late-payment calculator. It gates on the
+   `supported` outcome the eligibility questionnaire produces.
+2. Create the approved, versioned UK-law source library with citation and
    staleness validation.
-4. Only after those foundations work, extend the local LLM with confirmed
+3. Only after those foundations work, extend the local LLM with confirmed
    timeline extraction, source-grounded explanations and reminder drafts.
-5. Add approval/audit/send controls, solicitor-review routing, and the controlled
+4. Add approval/audit/send controls, solicitor-review routing, and the controlled
    source-update regression suite in the order recorded in
    [`plans/legal-assistance-build-order.md`](plans/legal-assistance-build-order.md).
 

@@ -1,7 +1,7 @@
 # Legal-assistance build order
 
 **Date:** 2 September 2026  
-**Status:** Active sequence; task 1 complete  
+**Status:** Active sequence; tasks 1-2 complete  
 **Owner:** Tolga — application and AI
 
 ## Delivery constraint
@@ -20,11 +20,14 @@ not autonomously decide entitlement, strategy, enforceability or court action.
    SQLite store and validation tests, extraction/registration handoff tests,
    production build, and browser checks of case persistence, evidence display
    and timeline notes.
-2. **Eligibility questionnaire and escalation rules — Not started.** Implement
-   deterministic questions and routing for the supported UK business-to-business
-   scope. Detect and surface an invoice-due-date versus contract-deadline
-   mismatch. Unsupported or uncertain cases must escalate rather than be
-   inferred by the model.
+2. **Eligibility questionnaire and escalation rules — Done.** `web/shared/eligibility.js`
+   implements the eight questions and the derived high-value and due-date-versus-deadline
+   checks in deterministic code, with no model involvement. Answers persist in
+   `case_eligibility`; the outcome is recomputed from those answers plus a live
+   Coston2 read on every case open and is never stored. 12 fixture tests, 2 store
+   tests, and 1 route test pass, and a browser check covered the unanswered,
+   supported, and dispute-escalation states plus persistence across a reload and
+   the mismatch banner.
 3. **Deterministic late-payment calculator — Not started.** Calculate dates,
    statutory-rate inputs, interest illustrations and fixed compensation in code.
    Add boundary, date, rounding, stale-rate and ineligible-case tests. The LLM
@@ -53,6 +56,9 @@ not autonomously decide entitlement, strategy, enforceability or court action.
 
 ## Next task
 
-Task 2: define the eligibility questionnaire schema, supported outcome codes,
-mandatory escalation triggers and acceptance fixtures before adding any LLM
-conversation around eligibility.
+Task 3: build and test the deterministic late-payment calculator. It gates on
+the `supported` outcome this task produces — a case that has not reached
+`supported` has no defensible date to count from. Code computes dates,
+statutory-rate inputs, and interest and compensation illustrations; the LLM
+performs no arithmetic and only narrates figures the calculator already
+produced.

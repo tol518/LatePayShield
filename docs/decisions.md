@@ -138,6 +138,31 @@ one in the page. Case rows written before ownership existed are migrated to
 `local-operator`. Multi-user identity, sessions, and encryption at rest remain
 later work: one token means one operator, not a user account system.
 
+## D-011 - The eligibility outcome is computed at read time, never stored
+
+**Date:** 2 September 2026
+**Status:** Accepted for the local prototype
+
+**Decision:** Persist only the operator's eligibility answers, in
+`case_eligibility`, and compute the outcome in the browser from
+`web/shared/eligibility.js` on every read, combining those answers with a live
+Coston2 agreement read.
+
+**Reason:** The invoice-due-date versus contract-deadline rule needs the
+agreement's on-chain `dueAt`, which only the live registry read holds; the local
+service never reads the chain, and copying a chain value into the case database
+would make that database a second source of truth for an agreement term. An
+outcome is also a function of the current rules, not a fact the operator
+asserted: storing one would let a later rules change leave rows claiming an
+outcome that those rules no longer produce, and task 3's calculator gates on
+that outcome.
+
+**Consequence:** The service validates and stores answers and returns no
+outcome, because it cannot compute one. The same pure module and the same
+fixtures cover the rules wherever they run. Recomputing costs nothing at this
+size. A per-answer audit history is deliberately absent until task 7 defines
+what an audit record must contain.
+
 ## Entry format
 
 New entries contain an ID, title, date, status, decision, reason, and consequence. Include an official source and check date when a decision depends on time-sensitive event, network, or sponsor information.

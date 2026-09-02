@@ -2,8 +2,9 @@
 
 **Current status:** The local testnet UI implements preparation, MetaMask
 registration, live agreement reads, Xaman/manual payment submission, XRPL
-matching, FDC job progress, optional local AI invoice extraction, and local
-case-file persistence. Authentication, multi-user storage, and a production
+matching, FDC job progress, optional local AI invoice extraction, local
+case-file persistence, and a deterministic eligibility questionnaire with no
+model involvement. Authentication, multi-user storage, and a production
 service are not implemented.
 
 The detailed visual and component guidance lives in [`ui-language.md`](ui-language.md).
@@ -92,6 +93,41 @@ Mismatch, network failure, and proof failure are operational conditions, not suc
   treating database state as proof.
 - Accept concise human-entered communication timeline notes. Do not send a
   message, infer a reply, or treat a model-written draft as a sent communication.
+
+### Eligibility and escalation
+
+A card in the case detail, immediately below the live agreement evidence card
+and above the communication timeline, so the operator has the on-chain
+deadline in view while answering. It renders `web/shared/eligibility.js`'s
+eight questions and takes no input from, and gives no input to, the local
+model.
+
+- Each question is a three-way radio group — yes, no, unknown — with no
+  preselected answer, so nothing can be accepted by accident.
+- One save action persists the answer map only; the outcome itself is never
+  saved (D-011).
+- The outcome banner recomputes on every keystroke from the current answers,
+  the case file's invoice facts, and the linked agreement's live `dueAt`, and
+  has three states:
+  - **Inside the supported scope** — "The answers and the case facts raise
+    nothing that has to leave the automated path. This is a routing result,
+    not legal advice."
+  - **More information needed** — "The questionnaire cannot be completed from
+    what the case file records. Nothing downstream may rely on it yet."
+  - **Leaves the automated path** — "This case stops here. LatePay Shield
+    offers source-grounded information and drafting support only, and takes no
+    position on this case."
+- Every fired reason lists its fixed summary and its route's copy: "Needs a
+  qualified adviser" for `professional_review`, "An operator can resolve this
+  in the case file" for `operator_action`. A due-date-versus-deadline mismatch
+  is a reason like any other, so it is always visible in the banner when it
+  fires rather than folded into a generic message.
+- A plain note appears whenever the banner reflects answers that differ from
+  what was last saved, naming when the saved answers were last stored.
+- No banner state, reason summary, or route copy states a legal position: an
+  escalation never says a claim is barred, that terms are unenforceable, or
+  that a debt is owed — only that the automated path stops and what kind of
+  review or operator action follows.
 
 ## Truthful feedback
 

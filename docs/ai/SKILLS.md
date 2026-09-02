@@ -6,10 +6,13 @@ behind `AI_ASSISTANT_ENABLED`. S2 to S5 remain specification only.
 **Verified against:** `mlx-community/Qwen3-8B-4bit` on an operator-hosted MLX server over a private network.
 **Owning documents:** [`AGENTS.md`](../../AGENTS.md), [`docs/project-context.md`](../project-context.md), [`docs/decisions.md`](../decisions.md) (D-003).
 
-**Implementation order:** The case-pack foundation is complete. Eligibility
-rules, the deterministic calculator, and the approved UK-law source library
-must work before any legal-advice-style conversation is built. The full ordered
-plan is [`../plans/legal-assistance-build-order.md`](../plans/legal-assistance-build-order.md).
+**Implementation order:** The case-pack foundation and the eligibility
+questionnaire and escalation rules are both complete. The deterministic
+calculator and the approved UK-law source library must still work before any
+legal-advice-style conversation is built. The full ordered plan is
+[`../plans/legal-assistance-build-order.md`](../plans/legal-assistance-build-order.md).
+Eligibility routing is deterministic code in `web/shared/eligibility.js`; no
+skill, prompt, or model output takes part in it.
 
 Current local-host operational diagnosis: [`mlx-server-memory-diagnosis.md`](mlx-server-memory-diagnosis.md).
 
