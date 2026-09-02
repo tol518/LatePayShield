@@ -187,6 +187,32 @@ fixture suite supplies its own law values, and no figure in it is an approved
 legal value. Every result carries `lawAsOf` and `illustrative: true`, so no
 consumer can render a figure without its date or present one as settled.
 
+## D-013 - Retrieval and approval are separate, and an unsourced convention is held apart
+
+**Date:** 2 September 2026
+**Status:** Accepted
+
+**Decision:** `data/uk-law/snapshot.json` holds each legal value beside the
+primary source it was retrieved from, and carries `approvedBy` and `approvedAt`.
+While those are unset the snapshot is unusable: `toLawInputs` returns null and
+the calculator reports `law_inputs_missing`. The 365-day count basis is not
+stored among the sourced facts. It sits in a separate `conventions` list, with
+no citation and a statement that the operator chose it.
+
+**Reason:** Retrieving a value from legislation.gov.uk makes it sourced, not
+approved. Keeping the two distinct means the file records who accepted
+responsibility for each figure, and a fetch that misread a page cannot reach a
+user without a person having looked. The day-count basis has no primary source
+at all: section 6 of the 1998 Act prescribes no day-count convention. Filing it
+beside sourced values would imply a source that does not exist, which is the
+confusion an approved-source library exists to prevent.
+
+**Consequence:** The snapshot is committed unapproved and the calculator stays
+disabled until a person approves it, which is what the build order requires. A
+convention carrying a citation is rejected as a fact in the wrong place. The
+snapshot covers only the reference periods actually retrieved, so a debt
+becoming late outside them is refused rather than estimated.
+
 ## Entry format
 
 New entries contain an ID, title, date, status, decision, reason, and consequence. Include an official source and check date when a decision depends on time-sensitive event, network, or sponsor information.

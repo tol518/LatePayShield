@@ -93,6 +93,55 @@ The exact external tools and URLs used to create this evidence are recorded in
   UI, and the calculator produces no figures in the running application today,
   because no approved law inputs exist yet — that is the intended behaviour
   until task 4 builds the approved UK-law source library, not a gap.
+- The approved UK-law source library now exists: a committed, versioned
+  snapshot at `data/uk-law/snapshot.json` and a pure validator/bridge,
+  `web/shared/lawSnapshot.js`, exporting `SNAPSHOT_VERSION`,
+  `ALLOWED_SOURCE_DOMAINS`, `PROBLEMS`, `validateSnapshot(snapshot)`,
+  `toLawInputs(snapshot)`, and `snapshotAgeDays(snapshot, asAtDate)`. It reads
+  no file and no clock; callers supply the parsed snapshot, so the same module
+  serves the local service and the browser bundle. Twelve problem codes cover
+  every way a snapshot can be unusable, and any one of them disables the whole
+  file — there is no partial-use state. The committed snapshot holds three
+  sourced facts (`statutory-interest-margin`, `statutory-interest-reference-rate`,
+  `fixed-sum-compensation`), one unsourced convention (`day-count-basis`, 365
+  days, carrying no citation because no primary source consulted prescribes
+  one), four sources and four citations. The allowlist accepts only an
+  `https` URL whose host equals or is a subdomain of `legislation.gov.uk`,
+  `bankofengland.co.uk`, `gov.uk`, or `justice.gov.uk`, so
+  `www.legislation.gov.uk` passes and `legislation.gov.uk.example.com` does
+  not. `toLawInputs` takes the oldest required fact's `asOf`, because a
+  snapshot is only as fresh as its stalest fact; staleness itself is not
+  reimplemented here, the calculator already owns that gate, and
+  `snapshotAgeDays` only exposes the age. `npm --prefix web test` passes 93 of
+  93 executions, the 16 new fixtures in `web/shared/lawSnapshot.test.js` plus
+  the 77 that already passed, and
+  `grep -nE "require\(|from 'node:|import\.meta|fetch\(|Date\.now|new Date\(\)" web/shared/lawSnapshot.js`
+  returns no output. An end-to-end fixture drives the calculator from the
+  committed snapshot with approval injected into a copy, producing 1891 pence
+  of interest and 7000 pence of fixed compensation on a 125000 pence debt 47
+  days late; a separate fixture confirms the unapproved committed snapshot
+  yields `law_inputs_missing` and no figures. A reviewer independently fetched
+  every cited URL and checked each figure against the source text on 2
+  September 2026 — section 5A of the 1998 Act for the three compensation
+  bands and their thresholds, article 4 of the Late Payment of Commercial
+  Debts (Rate of Interest) (No. 3) Order 2002 for the 8 per cent margin, the
+  half-yearly fixing rule, and the direction of the period mapping, section 6
+  of the 1998 Act confirming it sets no rate itself, and the Bank of England
+  Bank Rate page confirming 3.75 per cent at both reference dates — and found
+  no mismatch. A reviewer also ran an adversarial sweep against the URL
+  allowlist (userinfo, uppercase host, port, homoglyph, punycode subdomain,
+  non-https schemes) and found no way past it. **The snapshot is not
+  approved**: `approvedBy` and `approvedAt` are `null`, so `toLawInputs`
+  returns `null` and the calculator reports `law_inputs_missing` until a
+  person signs it off — this gates every downstream legal-information and
+  calculation feature and is recorded here as an outstanding item, not a gap
+  that was missed. There is no browser check for this task, because it builds
+  no UI. No `law:refresh` fetcher, allowlist enforcement at fetch time,
+  diff-and-review workflow, or source-change regression suite was built (task
+  9). The snapshot covers only calendar year 2026 reference periods; a debt
+  becoming late outside them is refused by the calculator with
+  `no_reference_period` rather than estimated, which is an operational
+  refresh requirement.
 - The React interface now uses the selected blue business-finance workspace: persistent desktop navigation, an invoice-to-evidence progress path, a drag-and-drop PDF/XML/UBL preparation card, local-AI privacy messaging, a truthful agreement preview, and recent live Coston2 agreements. The rendered page was checked in Chrome at 1440 × 1024 and 390 × 844 with no application console warnings/errors or horizontal mobile overflow. The paste-text disclosure, input enablement, and sidebar anchor navigation were exercised; no wallet or model submission was made during this visual check.
 - The agreement form now reads the current XRPL Testnet ledger, generates a destination tag, and creates a non-custodial Xaman `SignIn` QR/deep link for the supplier's public receiving address. The live browser check reached Xaman's waiting-for-approval state with both generated fields populated, no application console errors, and no horizontal overflow at 390 px. User approval inside Xaman remains intentionally outside website custody.
 - Repository contains a Node 24/Hardhat protocol foundation and locked dependency manifest.
@@ -126,7 +175,9 @@ The exact external tools and URLs used to create this evidence are recorded in
 ## Not implemented
 
 - AI skills S2 to S5 (reminder drafting, status explanation, UK-law information, interest illustration).
-- `npm run law:refresh` and `data/uk-law/snapshot.json`, without which S4 and S5 must stay disabled.
+- `npm run law:refresh`, its fetcher, allowlist enforcement at fetch time, and
+  the diff-and-review workflow (task 9). S4 and S5 stay disabled while the
+  committed snapshot remains unapproved.
 - A committed AI fixture suite covering the acceptance checks in `docs/ai/SKILLS.md` §9.
 - FTSO conversion.
 - Authenticated multi-user persistence, encrypted document storage, and durable
@@ -150,15 +201,18 @@ The exact external tools and URLs used to create this evidence are recorded in
 
 ## Next priorities
 
-1. Create the approved, versioned UK-law source library with citation and
-   staleness validation. It supplies the `lawInputs` the calculator's
-   `calculate()` takes; legal information and calculation stay disabled while
-   the snapshot is missing, invalid or stale.
-2. Only after that foundation works, extend the local LLM with confirmed
-   timeline extraction, source-grounded explanations and reminder drafts.
+1. Approve the committed UK-law snapshot — a person must set `approvedBy` and
+   `approvedAt` in `data/uk-law/snapshot.json` after checking each figure
+   against its source. Until that happens `toLawInputs` returns `null` and
+   the calculator reports `law_inputs_missing` for every case; this gates
+   every downstream legal-information and calculation feature.
+2. Once approved, extend the local LLM with confirmed timeline extraction,
+   source-grounded explanations and reminder drafts (tasks 5-6 of the build
+   order).
 3. Add approval/audit/send controls, solicitor-review routing, and the controlled
    source-update regression suite in the order recorded in
-   [`plans/legal-assistance-build-order.md`](plans/legal-assistance-build-order.md).
+   [`plans/legal-assistance-build-order.md`](plans/legal-assistance-build-order.md)
+   (tasks 7-9).
 
 The evidence-demo and cross-platform verification tasks remain open on the
 issue board, but they do not change this legal-assistance dependency order.

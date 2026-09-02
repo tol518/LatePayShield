@@ -297,6 +297,92 @@ The calculator produces no figures in the running application today, because
 no approved law inputs exist yet; that stays true until task 4 builds the
 approved UK-law source library that supplies `lawInputs`.
 
+## UK-law snapshot
+
+`web/shared/lawSnapshot.js` is the sole implementation. Like the calculator,
+it is a pure ESM module — no route, no storage, no UI, no model involvement —
+imported unchanged by the local service and the browser bundle. It reads no
+file and no clock; callers supply the already-parsed
+`data/uk-law/snapshot.json`. It exports `SNAPSHOT_VERSION` (`1`),
+`ALLOWED_SOURCE_DOMAINS`, the frozen `PROBLEMS` catalogue,
+`validateSnapshot(snapshot)`, `toLawInputs(snapshot)`, and
+`snapshotAgeDays(snapshot, asAtDate)`.
+
+**Snapshot shape:**
+
+| Field | Shape | Meaning |
+|---|---|---|
+| `snapshotVersion` | integer | Must equal `SNAPSHOT_VERSION` exactly; a version this build was not written to read is refused rather than guessed at. |
+| `fetchedAt`, `nextRefreshDue` | ISO instant | When the snapshot was retrieved and when it is next due for refresh. |
+| `approvedBy` | string or `null` | Who approved the snapshot's values. `null` in the committed file. |
+| `approvedAt` | ISO instant or `null` | When approval happened. `null` in the committed file. |
+| `sources` | array | What was retrieved and when, each an allowlisted `https` URL. |
+| `facts` | array | Sourced legal values, each with `id`, `volatility`, `statement`, `values`, `citationIds`, and `asOf`. |
+| `conventions` | array | Calculation conventions the operator chose, each with `id`, `value`, `statement`, and `citationIds` — which must be empty, because a convention carrying a citation is a fact filed in the wrong place. |
+| `citations` | array | Resolves every fact's and convention's `citationIds`, each an `id`, `title`, and an allowlisted `https` `url`. |
+
+While `approvedBy`/`approvedAt` are unset the snapshot is unusable:
+`validateSnapshot` reports `not_approved`, `toLawInputs` returns `null`, and
+the calculator reports `law_inputs_missing`. Retrieving a value makes it
+sourced; only a person setting the approval fields makes it approved (D-013).
+
+**The three required facts and one required convention** the calculator
+needs:
+
+| `id` | Kind | Supplies |
+|---|---|---|
+| `statutory-interest-margin` | fact | `marginPercent` |
+| `statutory-interest-reference-rate` | fact | `referencePeriods` |
+| `fixed-sum-compensation` | fact | `bands` |
+| `day-count-basis` | convention | `value` (a positive integer day count) |
+
+**Twelve problem codes** cover every way a snapshot can be unusable. Any one
+of them makes the whole snapshot unusable — there is no partial-use state:
+
+| `code` | Meaning |
+|---|---|
+| `snapshot_missing` | No snapshot object was supplied. |
+| `snapshot_malformed` | Not an object, or a required top-level list is missing or the wrong type. |
+| `unsupported_version` | `snapshotVersion` is not a version this module reads. |
+| `not_approved` | `approvedBy` or `approvedAt` is unset. |
+| `dates_unusable` | A timestamp or `asOf` value is not a real date. |
+| `citation_unresolved` | A fact cites a citation id the snapshot does not define. |
+| `citation_source_not_allowlisted` | A citation or source URL is not an `https` address on the allowlist. |
+| `fact_missing` | A required fact id is absent. |
+| `fact_malformed` | A fact's shape, volatility, or values are unusable. |
+| `convention_missing` | A required convention id is absent. |
+| `convention_malformed` | A required convention's value is unusable. |
+| `convention_has_citation` | A convention carries a citation, so it is a sourced fact filed in the wrong place. |
+
+**The allowlist rule.** `ALLOWED_SOURCE_DOMAINS` is `legislation.gov.uk`,
+`bankofengland.co.uk`, `gov.uk`, `justice.gov.uk`. A citation or source URL
+must be `https`, and its host must equal an allowlisted domain or end with a
+dot followed by one — a host match as itself or as a subdomain only, never a
+mere substring — so `www.legislation.gov.uk` passes and
+`legislation.gov.uk.example.com` does not.
+
+**The bridge to `lawInputs`.** `toLawInputs(snapshot)` returns `null` when
+`validateSnapshot(snapshot).usable` is false, and otherwise returns exactly
+the shape `calculate` consumes: `asOf`, `marginPercent`, `dayCountBasis`,
+`referencePeriods`, `compensationBands`. Its `asOf` is the **oldest** `asOf`
+across the three required facts, because a snapshot is only as fresh as its
+stalest fact and the calculator's staleness gate should see that rather than
+the newest one. Staleness itself is not reimplemented here — the calculator
+already owns `STALE_AFTER_DAYS` — and `snapshotAgeDays(snapshot, asAtDate)`
+only exposes the whole-day age between `fetchedAt` and a supplied date,
+returning `null` for an unreadable date.
+
+The committed `data/uk-law/snapshot.json` holds the three required facts, the
+`day-count-basis` convention (value `365`, no citation, because no primary
+source consulted prescribes a day-count convention), four sources, and four
+citations: section 5A and section 6 of the Late Payment of Commercial Debts
+(Interest) Act 1998, article 4 of the Late Payment of Commercial Debts (Rate
+of Interest) (No. 3) Order 2002, and the Bank of England Bank Rate page. It
+ships with `approvedBy` and `approvedAt` both `null`, so calculation stays
+disabled until a person approves it. It covers only calendar year 2026
+reference periods; a debt becoming late outside them is refused by the
+calculator (`no_reference_period`) rather than estimated.
+
 ## Update triggers
 
 Update this file whenever canonical fields/order/normalization, hash/address encoding, storage, statuses, transitions, matching conditions, ABI, events, evidence ID semantics, or verifier trust changes.

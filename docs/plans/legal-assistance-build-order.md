@@ -1,7 +1,7 @@
 # Legal-assistance build order
 
 **Date:** 2 September 2026  
-**Status:** Active sequence; tasks 1-3 complete  
+**Status:** Active sequence; tasks 1-4 complete  
 **Owner:** Tolga — application and AI
 
 ## Delivery constraint
@@ -38,10 +38,13 @@ not autonomously decide entitlement, strategy, enforceability or court action.
    pass, the 15 new fixtures plus the 62 that already passed. The calculator
    produces no figures until task 4 supplies approved law inputs. The LLM may
    explain supplied figures but cannot calculate or change them.
-4. **Approved UK-law source library — Not started.** Add a versioned local
-   snapshot whose facts resolve to approved primary-source citations. Validate
-   its schema, age and internal citation references. Disable legal information
-   and calculations when required sources are missing or stale.
+4. **Approved UK-law source library — Done.** `data/uk-law/snapshot.json` and
+   `web/shared/lawSnapshot.js` add a versioned, committed snapshot whose facts
+   and one convention resolve to allowlisted primary-source citations, plus a
+   pure validator and the bridge into the calculator's `lawInputs`. The
+   snapshot ships unapproved (`approvedBy`/`approvedAt` both `null`), so legal
+   information and calculation stay disabled until a person approves it. 93 of
+   93 `npm --prefix web test` executions pass.
 5. **Fact extraction and evidence timeline — Not started.** Extend the local LLM
    to propose grounded case facts and chronological events. Require source quotes
    and explicit user confirmation before anything persists.
@@ -62,8 +65,9 @@ not autonomously decide entitlement, strategy, enforceability or court action.
 
 ## Next task
 
-Task 4: create the approved UK-law source library with versioning and
-citations. It supplies the `lawInputs` this calculator's `calculate()` takes —
-the margin, the reference rates, the compensation bands and the day-count
-basis — and legal information and calculation stay disabled while the
-snapshot is missing, invalid or stale.
+Task 5: extend the local LLM to extract facts and produce an evidence
+timeline, always user-confirmed. Tasks 1 to 4 are the foundation: case facts,
+eligibility routing, the deterministic calculator, and the UK-law source
+library. A legal-advice-style chat experience must still not be presented —
+the committed snapshot has not been approved by a person, so no legal figure
+is available to the application yet, and S4/S5 stay disabled until it is.

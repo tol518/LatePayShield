@@ -1,21 +1,25 @@
 # LatePay Shield Local AI Agent — Skills and Guardrails
 
 **Status:** Skill S1 is implemented in `web/server/ai/` and reachable from the UI
-behind `AI_ASSISTANT_ENABLED`. S2 to S5 remain specification only.
+behind `AI_ASSISTANT_ENABLED`. S2 to S5 remain specification only; S4 and S5's
+deterministic prerequisite, the UK-law snapshot and validator, is implemented
+and tested but not yet approved (see §7.6).
 **Target model:** Qwen3-8B, run locally on the operator's machine (Ollama / llama.cpp / LM Studio / MLX).
 **Verified against:** `mlx-community/Qwen3-8B-4bit` on an operator-hosted MLX server over a private network.
 **Owning documents:** [`AGENTS.md`](../../AGENTS.md), [`docs/project-context.md`](../project-context.md), [`docs/decisions.md`](../decisions.md) (D-003).
 
 **Implementation order:** The case-pack foundation, the eligibility
-questionnaire and escalation rules, and the deterministic late-payment
-calculator are all complete. The approved UK-law source library must still
-work before any legal-advice-style conversation is built. The full ordered
-plan is
+questionnaire and escalation rules, the deterministic late-payment
+calculator, and the UK-law source library (snapshot plus validator/bridge)
+are all complete. The committed snapshot is not yet approved by a person, so
+no legal figure reaches the agent and no legal-advice-style conversation may
+be built yet. The full ordered plan is
 [`../plans/legal-assistance-build-order.md`](../plans/legal-assistance-build-order.md).
-Eligibility routing is deterministic code in `web/shared/eligibility.js`, and
+Eligibility routing is deterministic code in `web/shared/eligibility.js`,
 interest and compensation arithmetic is deterministic code in
-`web/shared/latePayment.js`; no skill, prompt, or model output takes part in
-either.
+`web/shared/latePayment.js`, and the snapshot's validation and bridge to
+`lawInputs` are deterministic code in `web/shared/lawSnapshot.js`; no skill,
+prompt, or model output takes part in any of the three.
 
 Current local-host operational diagnosis: [`mlx-server-memory-diagnosis.md`](mlx-server-memory-diagnosis.md).
 
@@ -188,9 +192,10 @@ figures that **`web/shared/latePayment.js` computed** from the approved
 snapshot's `lawInputs`. The model narrates; it never does the arithmetic and
 may not adjust a figure the calculator produced. Every output is labelled
 *illustrative, configurable, and non-binding*. The calculator module exists
-and is tested (D-012), but S5 stays disabled until task 4's approved snapshot
-supplies its `lawInputs` — until then the calculator has nothing to compute
-from and there is no figure for the model to narrate.
+and is tested (D-012), and task 4's snapshot and bridge exist and are tested
+(D-013), but S5 stays disabled until a person approves the committed
+snapshot — until then `toLawInputs` returns `null`, the calculator has
+nothing to compute from, and there is no figure for the model to narrate.
 
 ---
 
@@ -442,15 +447,19 @@ completely absent from the inference path.
 
 ### 7.2 Snapshot file
 
-`data/uk-law/snapshot.json` — committed, non-secret, reviewable.
+`data/uk-law/snapshot.json` — committed, non-secret, reviewable. This shape is
+now implemented as described; see [`data-and-contracts.md`](../data-and-contracts.md)
+§"UK-law snapshot" for the full field reference and problem-code catalogue.
 
 ```json
 {
   "snapshotVersion": 1,
   "fetchedAt": "2026-08-01T09:14:22Z",
   "nextRefreshDue": "2026-09-01T00:00:00Z",
+  "approvedBy": null,
+  "approvedAt": null,
   "sources": [
-    { "id": "boe-base-rate", "url": "https://www.bankofengland.co.uk/boeapps/database/Bank-Rate.asp", "fetchedAt": "2026-08-01T09:14:22Z", "status": "ok", "sha256": "…" }
+    { "id": "boe-base-rate", "url": "https://www.bankofengland.co.uk/boeapps/database/Bank-Rate.asp", "fetchedAt": "2026-08-01T09:14:22Z", "status": "ok" }
   ],
   "facts": [
     {
@@ -462,14 +471,30 @@ completely absent from the inference path.
       "asOf": "2026-08-01"
     }
   ],
+  "conventions": [
+    {
+      "id": "day-count-basis",
+      "value": "365",
+      "statement": "Interest is illustrated on a 365-day year. No primary source consulted prescribes a day-count convention, so this is a calculation convention the operator chose rather than a legal fact.",
+      "citationIds": []
+    }
+  ],
   "citations": [
     { "id": "lpcda-1998-s6", "title": "Late Payment of Commercial Debts (Interest) Act 1998, s.6", "url": "https://www.legislation.gov.uk/ukpga/1998/20/section/6" }
   ]
 }
 ```
 
-Every `fact` carries `citationIds`; every citation resolves to a primary source.
-The agent may only state what a `fact` says, and must attach its citations.
+`approvedBy` and `approvedAt` are `null` until a person checks each figure
+against its source and signs the snapshot off; while unset, the snapshot is
+unusable and no legal figure reaches the agent (D-013). `conventions` holds
+calculation choices the operator made rather than sourced legal facts, and a
+convention carrying a citation is rejected as a fact filed in the wrong place.
+`sha256` per source is not yet populated: nothing in the current build fetches
+content, and a hash nobody computed would be decoration; task 9's fetcher adds
+it when it can produce one honestly. Every `fact` carries `citationIds`; every
+citation resolves to a primary source. The agent may only state what a `fact`
+says, and must attach its citations.
 
 ### 7.3 Fact inventory and volatility
 
@@ -528,12 +553,26 @@ actually returned.
 
 The agent never says "as of today" or "currently". It says "as of {snapshotAsOf}".
 
-### 7.6 Not yet implemented
+### 7.6 What exists and what does not
 
-`npm run law:refresh`, `data/uk-law/snapshot.json`, and the schema validator do
-not exist yet. Until they do, S4 and S5 are **disabled** — the agent must refuse
-UK-law questions with `reason: "stale_snapshot"` rather than answer from model
-weights. A local 8B model's recollection of UK statute is not a source.
+`data/uk-law/snapshot.json` and its validator/bridge, `web/shared/lawSnapshot.js`
+(`validateSnapshot`, `toLawInputs`, `snapshotAgeDays`), are now implemented and
+tested — see [`data-and-contracts.md`](../data-and-contracts.md) and
+[`testing-and-demo.md`](../testing-and-demo.md). The committed snapshot holds
+the three required facts and the `day-count-basis` convention, each traced to
+an allowlisted primary source, and independent source verification against
+each cited URL found no mismatch.
+
+**The committed snapshot is not approved.** `approvedBy` and `approvedAt` are
+`null`, so `toLawInputs` returns `null` and no legal figure reaches the agent.
+S4 and S5 stay **disabled** for this reason alone, not because the snapshot is
+missing or schema-invalid — the agent must refuse UK-law questions and
+interest illustrations with `reason: "stale_snapshot"` until a person approves
+it, exactly as it would if the snapshot did not exist.
+
+`npm run law:refresh`, the fetcher, allowlist enforcement at fetch time, and
+the diff-and-review workflow do not exist yet (task 9). A local 8B model's
+recollection of UK statute is not a source, refreshed or not.
 
 ---
 
