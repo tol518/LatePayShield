@@ -1,6 +1,6 @@
 # Testing, Verification, CI, and Demo
 
-**Last verified locally:** 28 August 2026 on Windows with Node `24.19.0`
+**Last verified locally:** 2 September 2026 on macOS with Node `24.19.0`
 **Remote baseline:** `main` commit `2efb083`
 
 ## Verification levels
@@ -62,16 +62,58 @@ re-encoding, leaf sensitivity to a single altered field, agreement of the respon
 
 ### Web application and local AI
 
-`cd web && npm test` now runs 19 focused executions. Five document-parser
+`cd web && npm test` now runs 46 focused executions. Five document-parser
 fixtures cover selectable PDF text, ordinary XML, namespace-qualified UBL,
 currency attributes, file-size/type boundaries, malformed PDFs, and rejection
 of XML DTD/entity declarations. The existing 11 S1 validator executions and
-three payment/browser-library executions remain green. `npm run build` also
-passes. A synthetic UBL invoice was additionally sent through the running
+the payment/browser-library executions remain green. Seven case-file
+executions cover confirmed-fact persistence, duplicate agreement rejection,
+input bounds, communication notes, source quotes, extraction-to-case draft
+mapping, and the post-registration draft handoff. Two of them are access
+regressions: a second authenticated operator cannot list, open, or append to a
+case it does not own, and every store operation refuses to run without an
+authorized operator ID. The handoff tests confirm
+that invoice-only facts survive, final reviewed agreement names take precedence,
+stale quotes are removed, and the result remains unconfirmed.
+
+`server/access.test.js` adds seven executions that start the real service on an
+ephemeral loopback port with a scratch database and exercise the access policy
+over HTTP:
+
+- unauthenticated `GET /api/cases`, case detail, `POST /api/cases`, and
+  `POST /api/cases/:id/communications` all return `401`, an unrecognised token
+  returns `401`, and nothing is written by any refused request;
+- the served page carries the run's operator token, which the authorized list
+  request then uses;
+- one authenticated operator cannot read, list, or append to another operator's
+  case even holding its exact identifier (`404`, empty list, no note written);
+- a cross-origin `POST` is refused `403` with `text/plain`, `application/json`,
+  and `application/x-www-form-urlencoded` alike, while the same-origin write
+  succeeds;
+- a rebound `Host` header is refused `403` for both the API and the page;
+- a non-loopback bind exits before listening unless
+  `WEB_AUTHENTICATED_DEPLOYMENT`, `WEB_OPERATOR_TOKENS`, and
+  `WEB_ALLOWED_ORIGINS` are all set;
+- canonical loopback spellings are accepted while `0177.0.0.1`, `2130706433`,
+  and `127.0.0.1.mallory.example` are not.
+
+A live run of `npm start` on a scratch database was also checked by hand: the
+served page carried the generated token, `GET /api/cases` without it returned
+`401`, the same request with it returned `{"cases":[]}`, and a cross-origin
+`text/plain` `POST` returned `403`. `npm run build` also passes, and the built
+bundle carries no token. A synthetic UBL invoice was additionally sent through the running
 loopback API and configured `mlx-community/Qwen3-8B-4bit` model: it returned a
 schema-valid extraction with the expected invoice number, due date, and GBP
 currency. This is a local smoke test, not a committed model fixture suite or a
 recorded browser run.
+
+The case-file slice was exercised in Chrome against a temporary SQLite database:
+a user-confirmed case linked to live agreement `8` was saved, its current
+`PaidVerified` status and evidence ID were read from Coston2, and an outbound
+email note appeared in the communication timeline. The default desktop viewport
+and a narrow viewport were inspected with no horizontal overflow. Console
+messages came only from installed browser extensions; no application-owned
+warning or error was recorded.
 
 ## GitHub Actions
 
@@ -96,7 +138,7 @@ The `main` workflow for merge commit `e459042` completed successfully on 25 Augu
 | Agreement lifecycle | Live Coston2 agreement | Creation `0xf25f...43df`, agreement `2`, start ledger `20283755`, deadline `1787913245` | Created before its payment, so the evidence window is honest rather than back-fitted. |
 | FDC non-payment proof | Real proof accepted by the contract | Coston2 request `0xbcfb...7493`; voting round `1438645`; submission `0xab0d...068e` | Agreement `3` reads back as `OverdueVerified` with evidence ID `0x6881...14c1`. Searched ledgers `20284260` to `20284354` exclusive, above `1999999` drops, destination tag `2026002`. |
 | Additional paid-path record | Recorded live testnet evidence | Agreement `4`; XRPL `397A2598...B264B47A`; round `1438816`; Coston2 `0xf7ba...e781` | `evidence/coston2-paid-agreement-4.json` records `PaidVerified` and evidence ID `0x795b...ee7c`. |
-| Local web application | Local tests, production build, and local-model smoke | `web/` (`npm test`, `npm run build`); synthetic UBL request through `POST /api/ai/extractions` | React UI and loopback API compile; 19 focused executions pass, including PDF/XML/UBL parsing. A UBL request returned a schema-valid local-model extraction. Rendered browser QA and the browser-triggered FDC job have not been independently recorded as complete GUI runs. |
+| Local web application | Local tests, production build, local-model smoke, and case-file browser QA | `web/` (`npm test`, `npm run build`); synthetic UBL request through `POST /api/ai/extractions`; temporary SQLite case linked to live agreement `8` | React UI and loopback API compile; 46 focused executions pass, including seven HTTP access-policy regressions against the real service. A UBL request returned a schema-valid local-model extraction. A confirmed case and communication note persisted while XRPL/FDC status remained a live Coston2 read. The browser-triggered FDC job has not been independently recorded as a complete GUI run. |
 | FTSO | Optional/planned | None | Not implemented. |
 
 ## External verification runbook

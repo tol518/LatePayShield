@@ -1,7 +1,7 @@
 # Project Status
 
-**Last updated:** 30 August 2026
-**Phase:** Both outcome branches proven end to end on testnet; local AI extraction wired into the UI
+**Last updated:** 2 September 2026
+**Phase:** Both outcome branches proven on testnet; local AI extraction and confirmed case files wired into the UI
 **Current base:** Remote `main` commit `2efb083`
 
 This file records current truth. Target behavior belongs in the other documents.
@@ -11,6 +11,33 @@ The exact external tools and URLs used to create this evidence are recorded in
 
 ## Working and verified
 
+- The local web service no longer treats network reachability as permission.
+  Every `/api/` route requires an operator token in `X-LatePay-Operator-Token`,
+  case reads and writes are scoped to the owning operator, every request
+  including the served page must carry a loopback peer/`Host`/`Origin` in the
+  default deployment, and a non-loopback bind exits before listening unless
+  `WEB_AUTHENTICATED_DEPLOYMENT`, `WEB_OPERATOR_TOKENS`, and
+  `WEB_ALLOWED_ORIGINS` are all set. Nine new executions cover this, seven of
+  them driving the real service over HTTP; the complete web suite is now 46
+  passing executions and the production build still succeeds. A hand-run
+  `npm start` on a scratch database confirmed the served page carries the
+  generated token, that `GET /api/cases` without it returns `401` and with it
+  returns an empty list, and that a cross-origin `text/plain` `POST` returns
+  `403`. This closes
+  [`security/missing-case-api-access-control.md`](security/missing-case-api-access-control.md).
+  Multi-user identity and encryption at rest remain later work.
+- A local SQLite case-file slice now stores human-confirmed invoice facts,
+  source quotes/fingerprints, and communication notes while joining live
+  XRPL/FDC outcome data by Coston2 agreement ID. Raw invoice text remains
+  request-only. Five store tests and four case-draft/handoff tests pass; the complete web
+  suite now has 46 passing executions and the production build succeeds. After
+  a new agreement registration, the UI now links its agreement ID to an
+  unconfirmed case draft pre-filled from the same invoice and the final reviewed
+  agreement values; saving still requires separate human confirmation. A
+  temporary-database browser run created a confirmed case for live agreement `8`,
+  displayed its `PaidVerified` status and evidence ID from Coston2, and appended a
+  communication note. Desktop and narrow layouts had no application-owned
+  console errors or horizontal overflow.
 - The React interface now uses the selected blue business-finance workspace: persistent desktop navigation, an invoice-to-evidence progress path, a drag-and-drop PDF/XML/UBL preparation card, local-AI privacy messaging, a truthful agreement preview, and recent live Coston2 agreements. The rendered page was checked in Chrome at 1440 × 1024 and 390 × 844 with no application console warnings/errors or horizontal mobile overflow. The paste-text disclosure, input enablement, and sidebar anchor navigation were exercised; no wallet or model submission was made during this visual check.
 - The agreement form now reads the current XRPL Testnet ledger, generates a destination tag, and creates a non-custodial Xaman `SignIn` QR/deep link for the supplier's public receiving address. The live browser check reached Xaman's waiting-for-approval state with both generated fields populated, no application console errors, and no horizontal overflow at 390 px. User approval inside Xaman remains intentionally outside website custody.
 - Repository contains a Node 24/Hardhat protocol foundation and locked dependency manifest.
@@ -47,7 +74,9 @@ The exact external tools and URLs used to create this evidence are recorded in
 - `npm run law:refresh` and `data/uk-law/snapshot.json`, without which S4 and S5 must stay disabled.
 - A committed AI fixture suite covering the acceptance checks in `docs/ai/SKILLS.md` §9.
 - FTSO conversion.
-- Durable/multi-user application persistence, authentication, and job recovery.
+- Authenticated multi-user persistence, encrypted document storage, and durable
+  FDC job recovery. The current case database is local-only and raw invoice and
+  message bodies are deliberately not retained.
 - Prepared live/recorded demo flow using the UI and real Coston2/FDC identifiers.
 
 ## Known issues
@@ -57,14 +86,27 @@ The exact external tools and URLs used to create this evidence are recorded in
 3. README's original “memo/reference matching” narrative exceeded the contract: the memo is captured in XRPL evidence but is not checked by `LatePayShield.sol`.
 4. `recordVerifiedNonPayment` pins the request to `expectedDrops - 1` on the stated assumption that the attestation matches payments strictly greater than the requested amount. The live verifier matches at or above it instead. The guard is still safe, because a payment of exactly `expectedDrops` continues to block an overdue verdict, but it is one drop wider than intended: a payment of exactly `expectedDrops - 1` also blocks it, so such an agreement can be recorded as neither paid nor overdue and its only exit is `markDisputed`. Correcting it means requesting `expectedDrops` instead, which changes the contract and needs a redeploy.
 5. The operator-hosted MLX generation worker exhausted Metal memory during a long invoice extraction. The endpoint remained reachable, but prompt-cache memory grew to 5.74 GB across 10 sequences and generation failed with `Insufficient Memory`. See [`ai/mlx-server-memory-diagnosis.md`](ai/mlx-server-memory-diagnosis.md) for recovery and the proposed operating limits. Until the Mac mini host is restarted and bounded, large AI extraction requests may time out or fail; manual entry remains available.
+6. The current registration form can accept a contract deadline earlier than
+   the invoice due date carried into the case file. The two dates remain visible,
+   but there is no mismatch warning or blocking confirmation yet. Treat this as
+   an eligibility/validation rule to address before legal calculations or
+   case-specific legal information are enabled.
 
 ## Next priorities
 
-1. Demonstrate one fresh paid agreement through the browser UI to `PaidVerified`, while retaining the public evidence package.
-2. Commit an AI fixture suite so `docs/ai/SKILLS.md` §9 checks 1, 3, and 9 are regression-tested rather than manually observed.
-3. Prepare the demo around agreements `2`, `3`, and `4`, which provide real evidence for both outcome branches and the current payment UI path.
-4. Make the npm verification script cross-platform before relying on it as a universal local command.
-5. Add durable, authenticated job handling before treating the local application service as anything beyond a prototype.
+1. Build the deterministic eligibility questionnaire and escalation rules. The
+   case-pack foundation is complete for the local prototype.
+2. Build and test the deterministic late-payment calculator.
+3. Create the approved, versioned UK-law source library with citation and
+   staleness validation.
+4. Only after those foundations work, extend the local LLM with confirmed
+   timeline extraction, source-grounded explanations and reminder drafts.
+5. Add approval/audit/send controls, solicitor-review routing, and the controlled
+   source-update regression suite in the order recorded in
+   [`plans/legal-assistance-build-order.md`](plans/legal-assistance-build-order.md).
+
+The evidence-demo and cross-platform verification tasks remain open on the
+issue board, but they do not change this legal-assistance dependency order.
 
 ## Decision checkpoint
 

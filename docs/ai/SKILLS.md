@@ -6,6 +6,11 @@ behind `AI_ASSISTANT_ENABLED`. S2 to S5 remain specification only.
 **Verified against:** `mlx-community/Qwen3-8B-4bit` on an operator-hosted MLX server over a private network.
 **Owning documents:** [`AGENTS.md`](../../AGENTS.md), [`docs/project-context.md`](../project-context.md), [`docs/decisions.md`](../decisions.md) (D-003).
 
+**Implementation order:** The case-pack foundation is complete. Eligibility
+rules, the deterministic calculator, and the approved UK-law source library
+must work before any legal-advice-style conversation is built. The full ordered
+plan is [`../plans/legal-assistance-build-order.md`](../plans/legal-assistance-build-order.md).
+
 Current local-host operational diagnosis: [`mlx-server-memory-diagnosis.md`](mlx-server-memory-diagnosis.md).
 
 This file is the capability contract for the local model. It defines what the
@@ -76,6 +81,10 @@ to the same 25,000-character limit and all S1 prompt/schema rules below.
 ## 2. Capabilities — what the agent does
 
 Exactly five skills. Anything outside this list is out of scope and must be refused.
+
+These model capabilities do not define delivery order. S2–S5 may be enabled
+only when their deterministic prerequisites, approved sources, human gates and
+regression fixtures in the ordered plan are complete.
 
 | # | Skill | Output | Human gate |
 |---|---|---|---|

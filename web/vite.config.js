@@ -32,8 +32,31 @@ function canonicalTermsInterop() {
   };
 }
 
+/**
+ * Give the dev page the same operator token the local service accepts.
+ *
+ * `npm run dev` generates one token and passes it to both children, so the
+ * proxied API calls are authorized. It applies to the dev server only: a
+ * production bundle never carries a token.
+ */
+function operatorTokenMeta() {
+  return {
+    name: 'latepay-operator-token-meta',
+    apply: 'serve',
+    transformIndexHtml(html) {
+      const entry = (process.env.WEB_OPERATOR_TOKENS ?? '').split(',')[0]?.trim() ?? '';
+      const token = entry.includes(':') ? entry.slice(entry.indexOf(':') + 1).trim() : '';
+      if (!token) return html;
+      return {
+        html,
+        tags: [{ tag: 'meta', attrs: { name: 'latepay-operator-token', content: token }, injectTo: 'head-prepend' }],
+      };
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [canonicalTermsInterop(), react()],
+  plugins: [canonicalTermsInterop(), operatorTokenMeta(), react()],
   resolve: {
     alias: {
       '@latepay/canonical': canonicalTerms,

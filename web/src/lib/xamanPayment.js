@@ -1,7 +1,9 @@
+import { apiFetch, describeApiFailure } from './apiRequest.js';
+
 async function request(path, options) {
-  const response = await fetch(path, options);
+  const response = await apiFetch(path, options);
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error ?? `Payment service returned HTTP ${response.status}.`);
+  if (!response.ok) throw new Error(describeApiFailure(response.status, payload.error, 'The payment service'));
   return payload;
 }
 

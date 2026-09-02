@@ -3,12 +3,21 @@ import { spawn } from 'node:child_process';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomInt, randomUUID } from 'node:crypto';
 import dotenv from 'dotenv';
 import xummSdkPackage from 'xumm-sdk';
 import { readAiConfig } from './ai/config.js';
 import { runExtraction, MAX_INVOICE_CHARACTERS } from './ai/extract.js';
 import { extractDocumentText, MAX_DOCUMENT_BYTES, MAX_PDF_PAGES } from './ai/documentText.js';
+import { CaseInputError, CaseStore } from './cases/store.js';
+import {
+  AccessError,
+  authorizeNetwork,
+  authorizeOperator,
+  describeBindRefusal,
+  injectOperatorToken,
+  readAccessConfig,
+} from './access.js';
 
 const { XummSdk } = xummSdkPackage;
 // This package is intentionally frontend-adjacent, but credentials belong to
@@ -17,6 +26,20 @@ const { XummSdk } = xummSdkPackage;
 dotenv.config({ path: fileURLToPath(new URL('../../.env', import.meta.url)) });
 const PORT = Number(process.env.XAMAN_SERVER_PORT ?? 8787);
 const HOST = process.env.XAMAN_SERVER_HOST ?? '127.0.0.1';
+// Network and operator policy is resolved before the socket opens, so an
+// unsafe bind fails to start instead of serving case data to the network.
+let access;
+try {
+  access = readAccessConfig(process.env);
+} catch (error) {
+  console.error(`Web service access configuration is invalid: ${error.message}`);
+  process.exit(1);
+}
+const bindRefusal = describeBindRefusal(access);
+if (bindRefusal) {
+  console.error(bindRefusal);
+  process.exit(1);
+}
 const XRPL_TESTNET_RPC_URL = process.env.XRPL_TESTNET_RPC_URL ?? 'https://s.altnet.rippletest.net:51234';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CLASSIC_ADDRESS = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
@@ -42,6 +65,9 @@ const createAttempts = new Map();
 const aiAttempts = new Map();
 const fdcJobs = new Map();
 const fdcQueue = [];
+const caseStore = new CaseStore(process.env.CASE_DATABASE_PATH
+  ? { databasePath: process.env.CASE_DATABASE_PATH }
+  : undefined);
 let activeFdcJob = null;
 
 function allowRequest(attempts, address, limit) {
@@ -212,10 +238,14 @@ async function aiExtract(request, response) {
 
   const body = await readJson(request, MAX_AI_BODY_BYTES);
   const document = body.document ? await extractDocumentText(body.document) : null;
-  const result = await runExtraction(document?.text ?? body.invoiceText);
+  const sourceText = document?.text ?? body.invoiceText;
+  const result = await runExtraction(sourceText);
   sendJson(response, 200, {
     ...result,
     document: document ? { name: document.name, format: document.format, size: document.size } : null,
+    // This fingerprint lets a saved case identify the exact source that was
+    // reviewed without persisting the raw invoice text in the first slice.
+    sourceSha256: createHash('sha256').update(String(sourceText)).digest('hex'),
   });
 }
 
@@ -439,20 +469,32 @@ const MIME = {
   '.svg': 'image/svg+xml',
 };
 
+function sendHtml(response, html) {
+  const body = injectOperatorToken(html, access);
+  response.writeHead(200, {
+    'Content-Type': MIME['.html'],
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  response.end(body);
+}
+
 async function serveFrontend(response, pathname) {
   const relative = normalize(decodeURIComponent(pathname)).replace(/^(\.\.(\/|\\|$))+/, '').replace(/^[/\\]+/, '');
   let filePath = join(DIST_DIR, relative || 'index.html');
   try {
     const info = await stat(filePath);
     if (info.isDirectory()) filePath = join(filePath, 'index.html');
+    if (extname(filePath) === '.html') {
+      sendHtml(response, await readFile(filePath, 'utf8'));
+      return;
+    }
     const content = await readFile(filePath);
     response.writeHead(200, { 'Content-Type': MIME[extname(filePath)] ?? 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
     response.end(content);
   } catch {
     try {
-      const index = await readFile(join(DIST_DIR, 'index.html'));
-      response.writeHead(200, { 'Content-Type': MIME['.html'], 'X-Content-Type-Options': 'nosniff' });
-      response.end(index);
+      sendHtml(response, await readFile(join(DIST_DIR, 'index.html'), 'utf8'));
     } catch {
       sendJson(response, 404, { error: 'Frontend build not found. Run npm run build first.' });
     }
@@ -461,7 +503,11 @@ async function serveFrontend(response, pathname) {
 
 const server = http.createServer(async (request, response) => {
   try {
+    authorizeNetwork(request, access);
     const url = new URL(request.url, `http://${request.headers.host ?? `${HOST}:${PORT}`}`);
+    // Every API route, case routes included, needs an authenticated operator.
+    // Reaching the port is not permission.
+    const operatorId = url.pathname.startsWith('/api/') ? authorizeOperator(request, access) : null;
     if (request.method === 'GET' && url.pathname === '/api/xaman/health') {
       const aiConfig = readAiConfig();
       sendJson(response, 200, {
@@ -519,6 +565,28 @@ const server = http.createServer(async (request, response) => {
       await aiExtract(request, response);
       return;
     }
+    if (request.method === 'GET' && url.pathname === '/api/cases') {
+      sendJson(response, 200, { cases: caseStore.listCases(operatorId) });
+      return;
+    }
+    if (request.method === 'POST' && url.pathname === '/api/cases') {
+      sendJson(response, 201, { case: caseStore.createCase(await readJson(request), operatorId) });
+      return;
+    }
+    const caseMatch = request.method === 'GET' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})$/i);
+    if (caseMatch) {
+      const caseFile = caseStore.getCase(caseMatch[1], operatorId);
+      if (!caseFile) sendJson(response, 404, { error: 'Case file not found.' });
+      else sendJson(response, 200, { case: caseFile });
+      return;
+    }
+    const communicationMatch = request.method === 'POST' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})\/communications$/i);
+    if (communicationMatch) {
+      const caseFile = caseStore.addCommunication(communicationMatch[1], await readJson(request), operatorId);
+      if (!caseFile) sendJson(response, 404, { error: 'Case file not found.' });
+      else sendJson(response, 201, { case: caseFile });
+      return;
+    }
     if (request.method === 'POST' && url.pathname === '/api/fdc/payments') {
       await createFdcJob(request, response);
       return;
@@ -539,12 +607,23 @@ const server = http.createServer(async (request, response) => {
     }
     await serveFrontend(response, url.pathname);
   } catch (error) {
+    if (error instanceof AccessError) {
+      // Logged without the presented token, and answered with no detail about
+      // which check failed beyond what the operator needs to fix it.
+      console.error(`Web service refused a request: ${error.message}`);
+      sendJson(response, error.status, { error: error.message });
+      return;
+    }
     console.error('Web service request failed:', error?.message ?? error);
     if (error?.name === 'AiUnavailableError') {
       sendJson(response, 503, { error: error.message });
       return;
     }
     if (error?.name === 'AiInputError') {
+      sendJson(response, 400, { error: error.message });
+      return;
+    }
+    if (error instanceof CaseInputError) {
       sendJson(response, 400, { error: error.message });
       return;
     }
@@ -555,7 +634,11 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`LatePay Xaman service: http://${HOST}:${PORT}`);
+  const port = server.address()?.port ?? PORT;
+  console.log(`LatePay Xaman service: http://${HOST}:${port}`);
+  console.log(access.loopbackOnly
+    ? `Loopback deployment; case and service routes require an operator token${access.generatedToken ? ' generated for this run and served in the page' : ' from WEB_OPERATOR_TOKENS'}.`
+    : `Authenticated deployment on ${access.host}; ${access.operators.size} operator token(s) and ${access.allowedOrigins.size} allowed origin(s) configured.`);
   console.log(configured ? 'Xaman credentials loaded; Testnet payment requests are enabled.' : 'Xaman credentials missing; add them to the repository-root .env to enable wallet payments.');
   const aiConfig = readAiConfig();
   console.log(aiConfig.ready

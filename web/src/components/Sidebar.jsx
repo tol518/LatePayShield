@@ -12,6 +12,7 @@ const NAV = [
   { href: '#assistant', label: 'Invoice protection', icon: Document },
   { href: '#prepare', label: 'Agreements', icon: CheckCircle },
   { href: '#registry', label: 'Payments', icon: Clock },
+  { href: '#cases', label: 'Case files', icon: Document },
   { href: '#evidence', label: 'Evidence', icon: ShieldCheck },
   { href: '#how-it-works', label: 'How it works', icon: InfoCircle },
   { href: '#statuses', label: 'Statuses', icon: Person },

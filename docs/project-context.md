@@ -26,6 +26,9 @@ The current contract does not verify invoice memo text. Its on-chain payment dis
 5. Keep invoice documents, personal data, and secrets off-chain.
 6. Use testnets only and never fake network, transaction, contract, FDC, or FTSO evidence.
 7. Describe current implementation separately from the target product.
+8. Build legal-assistance foundations in dependency order: confirmed case data,
+   deterministic eligibility, deterministic calculations, then approved and
+   versioned sources. Do not lead with a legal-advice chat interface.
 
 ## Technology responsibilities
 
@@ -64,6 +67,10 @@ Blockchain earns its place only when the demo proves a trust property beyond “
 - Mainnet, real money, custody, or server-held private keys.
 - Automated collection, debt enforcement, credit scoring, blacklists, or dispute adjudication.
 - Legal, AML/KYC, compliance, financial-advice, security-audit, or production-readiness claims.
+- An AI lawyer replacement, autonomous applied legal advice, or model-selected
+  litigation and enforcement strategy. Supported assistance remains
+  source-grounded information and drafting with human approval and solicitor
+  escalation.
 - Full accounting integrations, bridges, FAssets/FXRP, DEX functionality, or issued currencies.
 - Multiple currencies/invoices, partial payment accounting, payment plans, or real identity verification.
 

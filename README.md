@@ -58,8 +58,12 @@ npm --prefix web install
 npm run dev
 ```
 
-See [`web/README.md`](web/README.md) for the testnet-only Xaman, opt-in FDC, and
-optional local AI configuration. The FDC job service uses the existing root scripts and local
+See [`web/README.md`](web/README.md) for the testnet-only Xaman, opt-in FDC,
+optional local AI, and operator-access configuration. The local service
+authorizes every `/api/` request with an operator token and, by default,
+accepts only loopback requests; `npm run dev` and `npm start` set that up for
+you, and binding anything wider requires the explicit authenticated-deployment
+settings in `.env.example`. The FDC job service uses the existing root scripts and local
 throwaway Coston2 configuration; it is not a production backend or durable job
 queue.
 

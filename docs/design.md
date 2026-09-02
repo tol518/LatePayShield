@@ -2,8 +2,9 @@
 
 **Current status:** The local testnet UI implements preparation, MetaMask
 registration, live agreement reads, Xaman/manual payment submission, XRPL
-matching, FDC job progress, and optional local AI invoice extraction. Durable
-persistence and a production service are not implemented.
+matching, FDC job progress, optional local AI invoice extraction, and local
+case-file persistence. Authentication, multi-user storage, and a production
+service are not implemented.
 
 The detailed visual and component guidance lives in [`ui-language.md`](ui-language.md).
 
@@ -23,7 +24,9 @@ The interface should feel like dependable payment administration, not a trading 
 1. **Prepare:** Upload a searchable PDF, XML, or UBL invoice, paste invoice text, or enter terms manually. The optional assistant is absent from the page when it is switched off, and no journey step depends on it. The upload control states the 10 MB/50-page limits and explains that scanned PDFs need OCR first.
 2. **Review:** Display AI-extracted values as editable suggestions, each shown with the verbatim quote from the document that supports it and the model's own confidence. Suggestions are labelled proposed and unconfirmed, and never include the XRPL destination, destination tag, XRP amount, or evidence-window start ledger. The invoice total and currency are reference-only: no currency is converted.
 3. **Confirm:** Require explicit confirmation of amount, deadline, XRPL destination, destination tag, and evidence-window start.
-4. **Register:** Show the Coston2 agreement ID and canonical terms hash.
+4. **Register:** Show the Coston2 agreement ID and canonical terms hash, then
+   pre-fill an unconfirmed local case draft from the same invoice and the exact
+   agreement review. Require a separate human confirmation before saving it.
 5. **Pay:** Present exact XRPL Testnet instructions; memo/reference is useful evidence but is not currently contract-verified.
 6. **Verify:** Request and submit the relevant FDC proof without claiming success early.
 7. **Resolve:** Present the contract-supported status and evidence limitations.
@@ -75,6 +78,20 @@ Mismatch, network failure, and proof failure are operational conditions, not suc
 - Field-by-field matching criteria.
 - Human explanation of what the result proves and does not prove.
 - Explorer links only for real identifiers.
+
+### Case file
+
+- Link one local case to one live Coston2 agreement ID.
+- After a new registration, pre-fill the linked case draft from the invoice-only
+  facts and the agreement values the user just confirmed. Keep the draft
+  unsaved and unconfirmed until the user checks it.
+- Store only facts the user explicitly confirms; AI extraction remains a draft.
+- Show invoice source metadata and its SHA-256 fingerprint without retaining the
+  raw invoice text in this first slice.
+- Read payment status and XRPL/FDC identifiers live from Coston2 rather than
+  treating database state as proof.
+- Accept concise human-entered communication timeline notes. Do not send a
+  message, infer a reply, or treat a model-written draft as a sent communication.
 
 ## Truthful feedback
 

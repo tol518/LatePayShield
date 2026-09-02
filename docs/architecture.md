@@ -3,8 +3,9 @@
 **Current status:** Both FDC outcome branches have been accepted by fresh Coston2
 agreements. A local React/Vite testnet application implements agreement creation,
 XRPL payment guidance/Xaman payment requests, public XRPL matching, opt-in FDC
-job progress, and an opt-in local AI invoice-extraction skill. It is not a
-durable or production application service.
+job progress, an opt-in local AI invoice-extraction skill, and local SQLite case
+files linking confirmed facts to live agreement reads. It is not an
+authenticated multi-user or production application service.
 
 ## Implemented repository map
 
@@ -30,13 +31,23 @@ web/
   src/                              React/Vite payment and evidence UI
   server/index.js                   Loopback-only Xaman, FDC job, and AI service
   server/ai/                        Document parsers, local model client, S1 prompt, and validator
+  server/cases/                     Validated SQLite case-file persistence
+  data/cases.sqlite                 Ignored local case database, created on first run
   vite.config.js                    Shared canonical-module alias and dev proxy
 ```
 
-There is no database, durable job queue, or authenticated multi-user backend.
-The web service keeps Xaman sessions and FDC job progress in memory and binds to
-`127.0.0.1` by default. Only skill S1 of [`docs/ai/SKILLS.md`](ai/SKILLS.md) is
-implemented; S2 to S5 are not.
+Case files use a local SQLite database. There is no durable job queue,
+authentication, encryption-at-rest layer, or multi-user backend. The web
+service keeps Xaman sessions and FDC job progress in memory and binds to
+`127.0.0.1` by default. Only skill S1 of
+[`docs/ai/SKILLS.md`](ai/SKILLS.md) is implemented; S2 to S5 are not.
+
+The next legal-assistance layers are deliberately ordered: deterministic
+eligibility and escalation, deterministic calculations, and a versioned
+approved-source library precede further LLM features. Timeline extraction,
+grounded explanations, reminder drafting, approval/send controls, solicitor
+routing and controlled source updates build on those foundations. See
+[`docs/plans/legal-assistance-build-order.md`](plans/legal-assistance-build-order.md).
 
 ## Runtime and dependencies
 
@@ -52,6 +63,8 @@ implemented; S2 to S5 are not.
 | Web UI | React `19`, Vite `7`, and a CommonJS alias to `lib/canonical.js` |
 | Xaman integration | Server-only `xumm-sdk`; credentials stay in the root ignored `.env` |
 | Local AI runtime | Operator-hosted OpenAI-compatible endpoint; `fetch` model client, PDF.js text extraction, and `fast-xml-parser` for XML/UBL |
+| Local case storage | Node 24 built-in SQLite; ignored `web/data/cases.sqlite` by default |
+| Web service access control | Operator token header, loopback/`Origin`/`Host` policy, and per-operator case ownership in `web/server/access.js` |
 
 The earlier Next.js/TypeScript/Tailwind suggestion is not an implemented decision.
 
@@ -160,10 +173,67 @@ existing script chain only after the browser has matched a payment. The contract
 remains the source of truth: the UI displays a final paid outcome only after a
 fresh Coston2 read returns `PaidVerified`.
 
+### Local case files
+
+`web/server/cases/store.js` owns a small SQLite schema for one case per Coston2
+agreement plus communication timeline notes. A case stores only explicitly
+human-confirmed structured facts, schema-validated source quotes, optional
+invoice source metadata, and a SHA-256 source fingerprint. Raw invoice text and
+uploaded bytes are not persisted. The agreement ID is the durable join: payment
+status, XRPL transaction hash, and FDC evidence ID are rendered from a fresh
+Coston2 read rather than copied into the case database as authority.
+
+The loopback API supports listing, creating, and reading cases and appending
+communication notes. There is deliberately no delete, outbound-message, or
+automated legal-decision endpoint in this first slice. Every case row carries an
+`owner_id`, and each of those four operations is scoped to the authenticated
+operator; the store refuses to run at all without an operator ID. A database
+written before ownership existed is migrated in place, with its existing rows
+assigned to `local-operator`.
+
+### Web service access control
+
+`web/server/access.js` is the single policy for the Node service, applied before
+any route, body, or database call is reached:
+
+- **Network policy, every request including the static page.** In a loopback
+  deployment the peer address, the `Host` header, and any `Origin` header must
+  all be canonical loopback values, so an attacker-controlled origin and a
+  rebound hostname are both refused. Obfuscated loopback spellings such as
+  `0177.0.0.1` or `2130706433` are rejected rather than resolved.
+- **Operator policy, every `/api/` route.** The caller must present a token in
+  `X-LatePay-Operator-Token`, compared against `WEB_OPERATOR_TOKENS` by
+  constant-time digest comparison. Reaching the port is not permission.
+- **Cross-origin writes.** A state-changing request is refused on the `Origin`
+  header alone, whatever its `Content-Type`, and a simple cross-site form or
+  `text/plain` POST additionally cannot set the token header.
+- **Bind refusal.** A non-loopback `XAMAN_SERVER_HOST` requires
+  `WEB_AUTHENTICATED_DEPLOYMENT=true`, configured `WEB_OPERATOR_TOKENS`, and
+  configured `WEB_ALLOWED_ORIGINS`. Otherwise the process logs the refusal and
+  exits before listening.
+
+In a loopback deployment the service generates a per-run token when none is
+configured and injects it into the page it serves as a `latepay-operator-token`
+meta tag, which only same-origin code can read; `npm run dev` generates one
+token and passes it to both the service and the Vite dev server. A non-loopback
+deployment never puts a token in the page: operator tokens are configured and
+distributed out of band. Browser API calls go through `web/src/lib/apiRequest.js`,
+the only place the header is attached.
+
+After `AgreementCreated` is confirmed, the React application combines its
+agreement review with the current invoice extraction draft and supplies the new
+agreement ID to the case form. Confirmed agreement values take precedence over
+any extracted version of the same descriptive field; invoice-only currency,
+total, original due date, payment terms, source metadata, and still-valid quotes
+are retained. This handoff creates browser state only. The case API is not
+called until the user separately confirms the case facts.
+
 ## Trust boundaries
 
 - Invoice input and AI output are untrusted until human confirmation. Pasted or locally extracted document text is quoted material, never instruction: it is wrapped in delimiters and the model is required to refuse an instruction-bearing document.
 - Browser/database state is not payment proof.
+- Network reachability is not authorization. The case and service routes require an authenticated operator token and an allowed local origin; case reads and writes are additionally scoped to the owning operator.
+- The served page carries an operator token only in a loopback deployment, where reaching the page already means being the local operator.
 - `standardAddressHash()` uses `keccak256(UTF8(trimmedAddress))`, verified against a real FDC `XRPPayment` response.
 - `startLedger` is supplied by the agreement creator and cannot be checked on-chain.
 - The XRPL memo is recorded in evidence but is not checked by the current contract.
@@ -180,6 +250,8 @@ fresh Coston2 read returns `PaidVerified`.
 | Proof request pending | Remain pending and show request metadata. |
 | Proof rejected or fields mismatch | Show verification failure/mismatch, not overdue or paid. |
 | Flare write fails | Preserve last confirmed on-chain state and transaction error/hash. |
+| Operator token missing or rejected | Refuse the API request with `401`, and tell the operator to reload the page the local service serves or check `WEB_OPERATOR_TOKENS`. Never fall back to an unauthenticated read or write. |
+| Unsafe bind configuration | Log the refusal and exit before listening rather than exposing case data. |
 
 ## Update triggers
 

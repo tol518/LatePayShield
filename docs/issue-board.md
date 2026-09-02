@@ -1,6 +1,6 @@
 # Issue Board
 
-**Last updated:** 28 August 2026
+**Last updated:** 2 September 2026
 
 This file owns task assignment and delivery status. Technical truth and verified
 evidence remain in `project-status.md` and `testing-and-demo.md`.
@@ -24,18 +24,32 @@ evidence remain in `project-status.md` and `testing-and-demo.md`.
 
 | Task | Status | Completion evidence |
 |---|---|---|
-| Frontend, local application layer, wallet UI, and evidence screen | In progress | `web/` provides MetaMask Coston2 agreement registration, live registry reads, Xaman/manual XRPL Testnet payment, matching checks, and a local opt-in FDC job runner. Job state is in memory; there is no durable or multi-user backend yet. |
+| 1. Case-pack model: invoice, terms, due date, parties, communications, and existing XRPL/FDC evidence | Done | The local SQLite model stores human-confirmed invoice facts, source metadata and communication notes, keyed one-to-one to a Coston2 agreement. The UI reads XRPL/FDC outcome evidence live through that agreement ID and pre-fills a linked, unconfirmed case draft after new registration. Store, validation, extraction-handoff, corrected-value and manual-entry tests pass; browser checks covered saving a case, live evidence display and adding a timeline note. |
+| Frontend, local application layer, wallet UI, and evidence screen | In progress | `web/` provides MetaMask Coston2 agreement registration, live registry reads, Xaman/manual XRPL Testnet payment, matching checks, a local opt-in FDC job runner, and SQLite case files for confirmed invoice facts and communication notes linked to live Coston2 evidence. A successful new registration pre-fills an unconfirmed linked case draft from the same invoice and reviewed agreement. Case persistence is local-only and job state remains in memory. Every `/api/` route now requires an operator token, case reads and writes are scoped to the owning operator, cross-origin state changes and rebound hosts are refused, and a non-loopback bind exits unless explicitly configured as an authenticated deployment; multi-user identity and encryption at rest are still not implemented. |
 | AI extraction and mandatory human-confirmation flow | In progress | Skill S1 of `docs/ai/SKILLS.md` is implemented behind `AI_ASSISTANT_ENABLED`: `web/server/ai/` holds the model client, the S1 prompt, and the schema validator that gates every reply, and `AiInvoiceExtraction.jsx` fills the agreement form with quoted, editable suggestions. The validator rejects a reply that populates `xrplDestination`, `destinationTag`, `amountDrops` or `startLedger`, or that claims no human confirmation is needed, and nulls any field whose quote is not a verbatim span of the pasted document; 11 unit executions cover it. A manual two-document run against a local `mlx-community/Qwen3-8B-4bit` endpoint returned a schema-valid extraction and refused an injection fixture. Remaining: a committed fixture suite for the `SKILLS.md` §9 checks, one demonstrated browser run, and skills S2 to S5. |
 | FTSO conversion | Not started | Optional after the core evidence flow. |
 
-## Immediate order
+## Legal-assistance build order
 
-1. Start the evidence-focused frontend against agreements `2` and `3`, which are
-   real recorded outcomes rather than fixtures.
-2. Prepare the demo around both branches.
-3. Commit AI fixtures covering `SKILLS.md` §9 checks 1, 3 and 9, so the injection
-   refusal and the log-hygiene guarantee are regression-tested rather than
-   manually observed.
+| Order | Task | Status | Dependency / completion rule |
+|---:|---|---|---|
+| 1 | Create the case-pack model: invoice, terms, due date, parties, communications, and existing XRPL/FDC evidence. | Done | Implemented and tested as described above. Operator-token authorization, per-operator case ownership, cross-origin write protection and bind refusal were added on 2 September 2026 (`docs/security/missing-case-api-access-control.md`, D-010). Multi-user identity and encryption at rest remain separate hardening work, not blockers for this local prototype task. |
+| 2 | Build the eligibility questionnaire and escalation rules. | Not started | Next foundation task. Unsupported or uncertain cases must be routed rather than decided by the model. Include a visible rule for invoice-due-date versus contract-deadline mismatches. |
+| 3 | Build and test the deterministic late-payment calculator. | Not started | Foundation task. Code computes dates, rates and amounts; the LLM never performs authoritative arithmetic. |
+| 4 | Create the approved UK-law source library with versioning and citations. | Not started | Foundation task. Legal-information and calculation features stay disabled when the snapshot is missing, invalid or too stale. |
+| 5 | Extend the local LLM to extract facts and produce an evidence timeline, always user-confirmed. | Not started | Starts only after tasks 2–4 work. Model output remains a draft. |
+| 6 | Add LLM source-grounded explanations and payment-reminder drafts. | Not started | Every legal statement cites an approved snapshot source; reminders are drafts only. |
+| 7 | Add human approval, audit logs, and send only after approval. | Not started | No outbound communication may be sent directly by the model. |
+| 8 | Add solicitor-review routing for disputes, insolvency, consumer, cross-border, high-value, and court cases. | Not started | These categories must leave the automated path and receive an explicit professional-review route. |
+| 9 | Add the controlled legal-source update/review process and regression test suite. | Not started | Source changes are reviewed, versioned and tested before becoming available to the local model. |
+
+Tasks 1–4 are the foundation. Do not start or present a “legal advice” chat
+experience until all four work. Even then, the product provides source-grounded
+information and drafting support with escalation—not a lawyer replacement or
+autonomous legal advice.
+
+The detailed sequence and acceptance gates live in
+[`plans/legal-assistance-build-order.md`](plans/legal-assistance-build-order.md).
 
 Both chains run unattended from `create:agreement`. For the paid branch set
 `XRPL_SUPPLIER_ADDRESS` first, or `spike:xrpl` funds a supplier the agreement knows

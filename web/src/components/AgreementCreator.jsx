@@ -8,6 +8,7 @@ import { walletErrorMessage } from '../lib/walletErrors.js';
 import PaymentJourney from './PaymentJourney.jsx';
 import { savePaymentDestination } from '../lib/paymentInstructions.js';
 import { buildPayerLink } from '../lib/payerLink.js';
+import { toRegisteredCaseDraft } from '../lib/casePack.js';
 import {
   createXamanWalletConnection,
   fetchXamanWalletConnectionStatus,
@@ -215,7 +216,15 @@ export default function AgreementCreator({ onCreated, suggestions }) {
       savePaymentDestination(created.agreementId, review.canonical.xrplDestination);
       setResult(created);
       setPhase('created');
-      onCreated?.(created);
+      onCreated?.({
+        ...created,
+        caseDraft: toRegisteredCaseDraft({
+          agreementId: created.agreementId,
+          review,
+          caseDraft: suggestions?.caseDraft,
+          agreementDeadlineDate: form.dueAtLocal.slice(0, 10),
+        }),
+      });
     } catch (walletError) {
       setError(walletErrorMessage(walletError));
       setPhase('review');
@@ -495,6 +504,7 @@ function CreatedState({ result, review, wallet }) {
         destination={review.canonical.xrplDestination}
         review={review}
       />
+      <a className="btn btn--quiet" href="#cases"><Document />Review linked case file</a>
     </div>
   );
 }
