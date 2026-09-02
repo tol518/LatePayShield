@@ -6,13 +6,16 @@ behind `AI_ASSISTANT_ENABLED`. S2 to S5 remain specification only.
 **Verified against:** `mlx-community/Qwen3-8B-4bit` on an operator-hosted MLX server over a private network.
 **Owning documents:** [`AGENTS.md`](../../AGENTS.md), [`docs/project-context.md`](../project-context.md), [`docs/decisions.md`](../decisions.md) (D-003).
 
-**Implementation order:** The case-pack foundation and the eligibility
-questionnaire and escalation rules are both complete. The deterministic
-calculator and the approved UK-law source library must still work before any
-legal-advice-style conversation is built. The full ordered plan is
+**Implementation order:** The case-pack foundation, the eligibility
+questionnaire and escalation rules, and the deterministic late-payment
+calculator are all complete. The approved UK-law source library must still
+work before any legal-advice-style conversation is built. The full ordered
+plan is
 [`../plans/legal-assistance-build-order.md`](../plans/legal-assistance-build-order.md).
-Eligibility routing is deterministic code in `web/shared/eligibility.js`; no
-skill, prompt, or model output takes part in it.
+Eligibility routing is deterministic code in `web/shared/eligibility.js`, and
+interest and compensation arithmetic is deterministic code in
+`web/shared/latePayment.js`; no skill, prompt, or model output takes part in
+either.
 
 Current local-host operational diagnosis: [`mlx-server-memory-diagnosis.md`](mlx-server-memory-diagnosis.md).
 
@@ -181,9 +184,13 @@ snapshot (§7). See §5 for the boundary between information and advice.
 ### S5 — Non-binding interest illustration
 
 Explain the statutory interest and fixed-sum compensation model and present
-figures that **deterministic code computed** from the snapshot. The model
-narrates; it never does the arithmetic. Every output is labelled
-*illustrative, configurable, and non-binding*.
+figures that **`web/shared/latePayment.js` computed** from the approved
+snapshot's `lawInputs`. The model narrates; it never does the arithmetic and
+may not adjust a figure the calculator produced. Every output is labelled
+*illustrative, configurable, and non-binding*. The calculator module exists
+and is tested (D-012), but S5 stays disabled until task 4's approved snapshot
+supplies its `lawInputs` — until then the calculator has nothing to compute
+from and there is no figure for the model to narrate.
 
 ---
 
@@ -399,7 +406,7 @@ win a claim, that they are entitled to a specific sum, or what a court would do.
 | Field normalization, bounds, integer safety | `lib/canonical.js` |
 | `invoiceHash`, `standardAddressHash` | `lib/canonical.js` |
 | Date arithmetic (net-30, days overdue, deadline) | Application layer |
-| Statutory interest and fixed-sum figures | Application layer, from snapshot |
+| Statutory interest and fixed-sum figures | `web/shared/latePayment.js`, from approved `lawInputs` |
 | Status determination | Contract state, read by the application layer |
 | Proof request, submission, retrieval | `scripts/fdc:*` |
 | Plain-English narration of any of the above | Model |

@@ -70,6 +70,29 @@ The exact external tools and URLs used to create this evidence are recorded in
   when switched. The `agreement_deadline_unreadable` path was never observed in
   the browser, because every case used in the check had a readable Coston2
   agreement; it is covered only by a unit test and by code reading.
+- A deterministic late-payment calculator, `web/shared/latePayment.js`, now
+  computes dates, statutory-interest illustrations and fixed compensation with
+  no model involvement. It exports `calculate(caseFacts, lawInputs)`,
+  `REASONS`, and `STALE_AFTER_DAYS`; every legal value — the margin over base
+  rate, the reference rates, the compensation bands, the day-count basis —
+  arrives as a `lawInputs` field, and none is held in code (D-012). Money is
+  whole minor units in `BigInt`, carried across the boundary as decimal
+  strings and rounded half up exactly once at the end; dates are `YYYY-MM-DD`
+  parsed from their year, month and day components and differenced in UTC; the
+  reference rate is fixed by the single reference period covering the date the
+  debt became late, and the module refuses rather than extrapolating when no
+  supplied period covers it. Nine reason codes cover every refusal
+  (`not_eligible`, `law_inputs_missing`, `law_inputs_invalid`,
+  `no_reference_period`, `currency_not_gbp`, `debt_amount_unusable`,
+  `dates_unusable`) and every informational `calculated` state
+  (`law_inputs_stale`, `not_yet_late`). `npm --prefix web test` passes 77 of
+  77 executions, the 15 new fixtures in `web/shared/latePayment.test.js` plus
+  the 62 that already passed, and `grep -nE "require\(|from 'node:|import\.meta|fetch\(|Date\.now|new Date\(\)" web/shared/latePayment.js`
+  returns no output, confirming the module reads no clock and touches no
+  platform API. There is no browser check for this task, because it builds no
+  UI, and the calculator produces no figures in the running application today,
+  because no approved law inputs exist yet — that is the intended behaviour
+  until task 4 builds the approved UK-law source library, not a gap.
 - The React interface now uses the selected blue business-finance workspace: persistent desktop navigation, an invoice-to-evidence progress path, a drag-and-drop PDF/XML/UBL preparation card, local-AI privacy messaging, a truthful agreement preview, and recent live Coston2 agreements. The rendered page was checked in Chrome at 1440 × 1024 and 390 × 844 with no application console warnings/errors or horizontal mobile overflow. The paste-text disclosure, input enablement, and sidebar anchor navigation were exercised; no wallet or model submission was made during this visual check.
 - The agreement form now reads the current XRPL Testnet ledger, generates a destination tag, and creates a non-custodial Xaman `SignIn` QR/deep link for the supplier's public receiving address. The live browser check reached Xaman's waiting-for-approval state with both generated fields populated, no application console errors, and no horizontal overflow at 390 px. User approval inside Xaman remains intentionally outside website custody.
 - Repository contains a Node 24/Hardhat protocol foundation and locked dependency manifest.
@@ -127,13 +150,13 @@ The exact external tools and URLs used to create this evidence are recorded in
 
 ## Next priorities
 
-1. Build and test the deterministic late-payment calculator. It gates on the
-   `supported` outcome the eligibility questionnaire produces.
-2. Create the approved, versioned UK-law source library with citation and
-   staleness validation.
-3. Only after those foundations work, extend the local LLM with confirmed
+1. Create the approved, versioned UK-law source library with citation and
+   staleness validation. It supplies the `lawInputs` the calculator's
+   `calculate()` takes; legal information and calculation stay disabled while
+   the snapshot is missing, invalid or stale.
+2. Only after that foundation works, extend the local LLM with confirmed
    timeline extraction, source-grounded explanations and reminder drafts.
-4. Add approval/audit/send controls, solicitor-review routing, and the controlled
+3. Add approval/audit/send controls, solicitor-review routing, and the controlled
    source-update regression suite in the order recorded in
    [`plans/legal-assistance-build-order.md`](plans/legal-assistance-build-order.md).
 

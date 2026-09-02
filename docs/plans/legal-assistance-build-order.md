@@ -1,7 +1,7 @@
 # Legal-assistance build order
 
 **Date:** 2 September 2026  
-**Status:** Active sequence; tasks 1-2 complete  
+**Status:** Active sequence; tasks 1-3 complete  
 **Owner:** Tolga — application and AI
 
 ## Delivery constraint
@@ -28,10 +28,16 @@ not autonomously decide entitlement, strategy, enforceability or court action.
    tests, and 1 route test pass, and a browser check covered the unanswered,
    supported, and dispute-escalation states plus persistence across a reload and
    the mismatch banner.
-3. **Deterministic late-payment calculator — Not started.** Calculate dates,
-   statutory-rate inputs, interest illustrations and fixed compensation in code.
-   Add boundary, date, rounding, stale-rate and ineligible-case tests. The LLM
-   may explain supplied figures but cannot calculate or change them.
+3. **Deterministic late-payment calculator — Done.** `web/shared/latePayment.js`
+   computes dates, interest and fixed compensation in code, with every legal
+   value — margin, reference rates, compensation bands, day-count basis —
+   arriving as a `lawInputs` argument rather than living in code. Money is
+   `BigInt` minor units rounded half up once at the end, dates are `YYYY-MM-DD`
+   differenced in UTC, and the reference rate is fixed by the period covering
+   the date the debt became late. 77 of 77 `npm --prefix web test` executions
+   pass, the 15 new fixtures plus the 62 that already passed. The calculator
+   produces no figures until task 4 supplies approved law inputs. The LLM may
+   explain supplied figures but cannot calculate or change them.
 4. **Approved UK-law source library — Not started.** Add a versioned local
    snapshot whose facts resolve to approved primary-source citations. Validate
    its schema, age and internal citation references. Disable legal information
@@ -56,9 +62,8 @@ not autonomously decide entitlement, strategy, enforceability or court action.
 
 ## Next task
 
-Task 3: build and test the deterministic late-payment calculator. It gates on
-the `supported` outcome this task produces — a case that has not reached
-`supported` has no defensible date to count from. Code computes dates,
-statutory-rate inputs, and interest and compensation illustrations; the LLM
-performs no arithmetic and only narrates figures the calculator already
-produced.
+Task 4: create the approved UK-law source library with versioning and
+citations. It supplies the `lawInputs` this calculator's `calculate()` takes —
+the margin, the reference rates, the compensation bands and the day-count
+basis — and legal information and calculation stay disabled while the
+snapshot is missing, invalid or stale.

@@ -99,6 +99,38 @@ the previously saved answers unchanged. It also confirms `GET /api/cases/:id`
 returns `eligibility` as exactly `{ answers, assessedAt }`, and never returns
 an outcome, because the service cannot compute one.
 
+### Late-payment calculator
+
+`web/shared/latePayment.test.js` runs 15 fixture tests against `calculate()`
+in `web/shared/latePayment.js`, covering: a worked example end to end with
+every output field asserted; the fixed-compensation band selected at each of
+its boundaries; a whole-day count across a leap day; an as-at date on or
+before the due date reporting `not_yet_late` with no figures and a zero
+`additionalMinorUnits`; the reference period chosen by the date the debt
+became late, including the exact half-year boundary; a refusal when no
+supplied period covers that date; the staleness threshold withholding
+interest but not fixed compensation at 91 days while still giving interest at
+exactly 90; every non-`supported` eligibility outcome producing no figures; an
+exact half-penny rounding half up; a debt large enough that `Number`
+arithmetic drifts a penny, asserted exact against `BigInt`; every unreadable
+or malformed law input (a bad margin, an impossible as-of date, no periods, a
+period ending before it starts, no bands, no open top band, a band amount in
+major units, a zero or fractional day count); every unusable case fact (a
+non-sterling or missing currency, an empty, fractional, zero or negative
+debt, an impossible or missing date); determinism across two identical calls;
+every result carrying the same twelve keys regardless of path; and no reason
+summary stating a legal conclusion.
+
+This task builds no route, no storage, and no UI, so there is no browser
+check for it. `npm --prefix web test` passes 77 of 77 executions, these 15
+plus the 62 that already passed. A purity check,
+`grep -nE "require\(|from 'node:|import\.meta|fetch\(|Date\.now|new Date\(\)" web/shared/latePayment.js`,
+returns no output, confirming the module reads no clock and imports no
+platform API. No figure in the fixture suite is an approved legal value; they
+are test inputs chosen to exercise the arithmetic, and the calculator
+produces no figures in the running application until task 4 supplies approved
+`lawInputs`.
+
 ### Web application and local AI
 
 `cd web && npm test` now runs 61 focused executions. Five document-parser
@@ -197,6 +229,7 @@ The `main` workflow for merge commit `e459042` completed successfully on 25 Augu
 | Additional paid-path record | Recorded live testnet evidence | Agreement `4`; XRPL `397A2598...B264B47A`; round `1438816`; Coston2 `0xf7ba...e781` | `evidence/coston2-paid-agreement-4.json` records `PaidVerified` and evidence ID `0x795b...ee7c`. |
 | Local web application | Local tests, production build, local-model smoke, and case-file browser QA | `web/` (`npm test`, `npm run build`); synthetic UBL request through `POST /api/ai/extractions`; temporary SQLite case linked to live agreement `8` | React UI and loopback API compile; 61 focused executions pass, including eight HTTP access-policy regressions against the real service and twelve deterministic eligibility fixtures. A UBL request returned a schema-valid local-model extraction. A confirmed case and communication note persisted while XRPL/FDC status remained a live Coston2 read. The browser-triggered FDC job has not been independently recorded as a complete GUI run. |
 | Eligibility questionnaire | Local deterministic tests, route test, and browser QA | `web/shared/eligibility.test.js`, `web/server/cases/store.test.js`, `web/server/access.test.js` | Twelve fixture tests, two store tests, and one route test pass. A Chrome browser check, run twice against case files linked to live Coston2 agreements, observed the unanswered, supported, and dispute-escalation states, persistence across a reload, the mismatch banner, and unsaved answers surviving an unrelated save. The `agreement_deadline_unreadable` path was never observed in the browser; every case used had a readable agreement. |
+| Late-payment calculator | Local deterministic tests only | `web/shared/latePayment.test.js` | 15 fixture tests pass, taking `npm --prefix web test` to 77 of 77 executions. No browser check exists because this task built no route, no storage, and no UI. The calculator produces no figures in the running application until task 4 supplies approved `lawInputs`. |
 | FTSO | Optional/planned | None | Not implemented. |
 
 ## External verification runbook

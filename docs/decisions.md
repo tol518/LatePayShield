@@ -163,6 +163,30 @@ fixtures cover the rules wherever they run. Recomputing costs nothing at this
 size. A per-answer audit history is deliberately absent until task 7 defines
 what an audit record must contain.
 
+## D-012 - Legal values are calculator inputs, never constants in code
+
+**Date:** 2 September 2026
+**Status:** Accepted
+
+**Decision:** `web/shared/latePayment.js` embeds no legal value. The margin over
+base rate, the reference rates, the fixed-compensation bands and the day-count
+basis all arrive as a `lawInputs` argument, and the module refuses to produce a
+figure when they are missing, unreadable, or older than the freshness limit.
+`STALE_AFTER_DAYS` is the sole number held in code, because it is this
+repository's own currency policy rather than a fact about the law.
+
+**Reason:** The approved UK-law source library is a later task, and this
+repository does not state a legal fact without an inspectable source. Taking the
+values as inputs let the calculator and its fixtures be built and tested first.
+It also removes a defect class permanently: an approved source value and a copy
+in code cannot drift apart when there is no copy.
+
+**Consequence:** The calculator produces nothing until an approved source
+supplies its inputs, which is the intended behaviour rather than a gap. The
+fixture suite supplies its own law values, and no figure in it is an approved
+legal value. Every result carries `lawAsOf` and `illustrative: true`, so no
+consumer can render a figure without its date or present one as settled.
+
 ## Entry format
 
 New entries contain an ID, title, date, status, decision, reason, and consequence. Include an official source and check date when a decision depends on time-sensitive event, network, or sponsor information.

@@ -217,6 +217,82 @@ as clear.
 No outcome is ever persisted (D-011): `assess(answers, context)` recomputes it
 from the stored answers and a fresh registry read every time a case is opened.
 
+## Late-payment calculator
+
+`web/shared/latePayment.js` is the sole implementation. It is a pure ESM
+module — no route, no storage, no UI, no model involvement — imported
+unchanged wherever the local service and the browser bundle need it. It
+exports `calculate(caseFacts, lawInputs)`, the frozen `REASONS` catalogue, and
+`STALE_AFTER_DAYS` (`90`), the only number the module holds in code: it is
+this repository's own currency policy, not a fact about the law. No legal
+value — the margin over base rate, the reference rates, the fixed-compensation
+bands, the day-count basis — appears in the module; every one of them arrives
+in `lawInputs` (D-012).
+
+**`caseFacts`:**
+
+| Field | Shape | Meaning |
+|---|---|---|
+| `eligibilityOutcome` | string | The outcome string `web/shared/eligibility.js` `assess()` returns. The module takes it as a plain parameter rather than importing that module. |
+| `debtMinorUnits` | decimal string | Whole, positive minor units. |
+| `currency` | string | Must be `GBP`. |
+| `dueDate` | `YYYY-MM-DD` | The invoice due date. |
+| `asAtDate` | `YYYY-MM-DD` | Supplied by the caller; the module never reads a clock. |
+
+**`lawInputs`:**
+
+| Field | Shape | Meaning |
+|---|---|---|
+| `asOf` | `YYYY-MM-DD` | Date the supplied law values were current. |
+| `marginPercent` | decimal string | Margin over the base rate. |
+| `dayCountBasis` | positive integer | Day-count denominator for simple interest. |
+| `referencePeriods` | array of `{ start, end, baseRatePercent }` | Each a `YYYY-MM-DD` pair and a decimal-string rate; `end` must not be before `start`. |
+| `compensationBands` | array of `{ upToMinorUnits, amountMinorUnits }` | Ordered bands; the last entry's `upToMinorUnits` must be `null` (an open top band), or the inputs are rejected. |
+
+**Result shape.** Every result carries exactly these twelve keys on every
+path, so a caller can never read a figure out of a refusal: `status`,
+`reasons`, `dueDate`, `asAtDate`, `daysLate`, `debtMinorUnits`, `currency`,
+`interest`, `fixedCompensationMinorUnits`, `additionalMinorUnits`, `lawAsOf`,
+`illustrative`. `illustrative` is `true` on every result, and `lawAsOf` is
+always present so no consumer can render a figure without its date.
+`additionalMinorUnits` is interest plus fixed compensation and deliberately
+excludes the debt itself — a single combined figure would read as a demand.
+
+**Status and reason codes.** `status` is exactly `calculated` or
+`unavailable`. Nine reason codes:
+
+| `code` | `status` | Meaning |
+|---|---|---|
+| `not_eligible` | `unavailable` | The eligibility outcome is not `supported`. |
+| `law_inputs_missing` | `unavailable` | No law inputs were supplied. |
+| `law_inputs_invalid` | `unavailable` | The supplied law inputs could not be read. |
+| `no_reference_period` | `unavailable` | No supplied period covers the date the debt became late. |
+| `currency_not_gbp` | `unavailable` | The debt is not in sterling. |
+| `debt_amount_unusable` | `unavailable` | The debt is not a whole, positive number of minor units. |
+| `dates_unusable` | `unavailable` | The due date or the as-at date is not a real calendar date. |
+| `law_inputs_stale` | `calculated` | The law inputs are older than `STALE_AFTER_DAYS`; interest is withheld but fixed compensation is still computed. |
+| `not_yet_late` | `calculated` | The as-at date is on or before the due date; `daysLate` is `0` and `additionalMinorUnits` is `'0'`. |
+
+**Money.** Whole minor units, carried across the boundary as decimal strings
+and computed in `BigInt`. No float touches a monetary value. Interest is
+simple, never compounded, and is rounded half up to the nearest penny exactly
+once, at the end.
+
+**Dates.** `YYYY-MM-DD` strings parsed from their year, month and day
+components and differenced in UTC, never through `new Date(string)`. An
+impossible date such as `2026-02-30` is rejected rather than rolled forward.
+
+**Reference period selection.** The debt becomes late the day after the due
+date, and that single date decides which supplied reference period governs
+the whole accrual — one rate for the whole accrual, never a blend across a
+boundary. The chosen period is named in the output. If no supplied period
+covers that date, the module refuses (`no_reference_period`) rather than
+extrapolating or falling back to the nearest period.
+
+The calculator produces no figures in the running application today, because
+no approved law inputs exist yet; that stays true until task 4 builds the
+approved UK-law source library that supplies `lawInputs`.
+
 ## Update triggers
 
 Update this file whenever canonical fields/order/normalization, hash/address encoding, storage, statuses, transitions, matching conditions, ABI, events, evidence ID semantics, or verifier trust changes.
