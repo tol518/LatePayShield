@@ -1,0 +1,100 @@
+{
+  "snapshotVersion": 1,
+  "fetchedAt": "2026-09-02T00:00:00Z",
+  "nextRefreshDue": "2026-10-02T00:00:00Z",
+  "approvedBy": null,
+  "approvedAt": null,
+  "sources": [
+    {
+      "id": "lpcda-1998-s5a",
+      "url": "https://www.legislation.gov.uk/ukpga/1998/20/section/5A",
+      "fetchedAt": "2026-09-02T00:00:00Z",
+      "status": "ok"
+    },
+    {
+      "id": "lpcda-1998-s6",
+      "url": "https://www.legislation.gov.uk/ukpga/1998/20/section/6",
+      "fetchedAt": "2026-09-02T00:00:00Z",
+      "status": "ok"
+    },
+    {
+      "id": "si-2002-1675-a4",
+      "url": "https://www.legislation.gov.uk/uksi/2002/1675/made",
+      "fetchedAt": "2026-09-02T00:00:00Z",
+      "status": "ok"
+    },
+    {
+      "id": "boe-bank-rate",
+      "url": "https://www.bankofengland.co.uk/boeapps/database/Bank-Rate.asp",
+      "fetchedAt": "2026-09-02T00:00:00Z",
+      "status": "ok"
+    }
+  ],
+  "facts": [
+    {
+      "id": "statutory-interest-margin",
+      "volatility": "low",
+      "statement": "Statutory interest on a qualifying commercial debt runs at 8 percentage points over the official dealing rate. The Act itself sets no rate; section 6 requires the Secretary of State to set one by order made with Treasury consent, and article 4 of the 2002 order is that order.",
+      "values": { "marginPercent": "8" },
+      "citationIds": ["si-2002-1675-a4", "lpcda-1998-s6"],
+      "asOf": "2026-09-02"
+    },
+    {
+      "id": "statutory-interest-reference-rate",
+      "volatility": "high",
+      "statement": "The official dealing rate is fixed half-yearly: the rate in force on 30 June applies where statutory interest starts to run between 1 July and 31 December, and the rate in force on 31 December applies where it starts to run between 1 January and 30 June. The Bank of England official Bank Rate was 3.75 per cent on 31 December 2025 and 3.75 per cent on 30 June 2026. Periods outside those listed are not covered by this snapshot.",
+      "values": {
+        "referencePeriods": [
+          { "start": "2026-01-01", "end": "2026-06-30", "baseRatePercent": "3.75" },
+          { "start": "2026-07-01", "end": "2026-12-31", "baseRatePercent": "3.75" }
+        ]
+      },
+      "citationIds": ["si-2002-1675-a4", "boe-bank-rate"],
+      "asOf": "2026-09-02"
+    },
+    {
+      "id": "fixed-sum-compensation",
+      "volatility": "medium",
+      "statement": "A fixed sum is due alongside statutory interest, banded by the size of the debt: 40 pounds for a debt under 1,000 pounds, 70 pounds for a debt of 1,000 pounds or more but less than 10,000 pounds, and 100 pounds for a debt of 10,000 pounds or more.",
+      "values": {
+        "bands": [
+          { "upToMinorUnits": "99999", "amountMinorUnits": "4000" },
+          { "upToMinorUnits": "999999", "amountMinorUnits": "7000" },
+          { "upToMinorUnits": null, "amountMinorUnits": "10000" }
+        ]
+      },
+      "citationIds": ["lpcda-1998-s5a"],
+      "asOf": "2026-09-02"
+    }
+  ],
+  "conventions": [
+    {
+      "id": "day-count-basis",
+      "value": "365",
+      "statement": "Interest is illustrated on a 365-day year. No primary source consulted prescribes a day-count convention for statutory interest, so this is a calculation convention the operator chose rather than a legal fact.",
+      "citationIds": []
+    }
+  ],
+  "citations": [
+    {
+      "id": "lpcda-1998-s5a",
+      "title": "Late Payment of Commercial Debts (Interest) Act 1998, section 5A",
+      "url": "https://www.legislation.gov.uk/ukpga/1998/20/section/5A"
+    },
+    {
+      "id": "lpcda-1998-s6",
+      "title": "Late Payment of Commercial Debts (Interest) Act 1998, section 6",
+      "url": "https://www.legislation.gov.uk/ukpga/1998/20/section/6"
+    },
+    {
+      "id": "si-2002-1675-a4",
+      "title": "Late Payment of Commercial Debts (Rate of Interest) (No. 3) Order 2002, article 4",
+      "url": "https://www.legislation.gov.uk/uksi/2002/1675/made"
+    },
+    {
+      "id": "boe-bank-rate",
+      "title": "Bank of England official Bank Rate",
+      "url": "https://www.bankofengland.co.uk/boeapps/database/Bank-Rate.asp"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   ALLOWED_SOURCE_DOMAINS,
   PROBLEMS,
@@ -8,6 +9,7 @@ import {
   toLawInputs,
   validateSnapshot,
 } from './lawSnapshot.js';
+import { calculate } from './latePayment.js';
 
 /** A structurally complete, approved snapshot. Values are fixtures, not approved law. */
 function snapshot(overrides = {}) {
@@ -232,4 +234,56 @@ test('every problem code has a summary and none states a legal conclusion', () =
     assert.ok(summary.length > 0, code);
     assert.doesNotMatch(summary, forbidden, `${code} states a conclusion.`);
   }
+});
+
+/** The committed snapshot, read from disk rather than fixtured. */
+function committedSnapshot() {
+  return JSON.parse(readFileSync(new URL('../../data/uk-law/snapshot.json', import.meta.url), 'utf8'));
+}
+
+test('the committed snapshot is structurally correct and awaiting approval', () => {
+  const result = validateSnapshot(committedSnapshot());
+  // Passes before and after a person sets the approval fields, so this test
+  // never needs editing when the snapshot is approved.
+  assert.deepEqual(codes(result).filter((code) => code !== 'not_approved'), []);
+});
+
+test('the committed snapshot drives the calculator once approved', () => {
+  const approved = {
+    ...committedSnapshot(),
+    approvedBy: 'fixture approval, not a real sign-off',
+    approvedAt: '2026-09-02T00:00:00Z',
+  };
+  const lawInputs = toLawInputs(approved);
+  assert.equal(lawInputs.marginPercent, '8');
+  assert.equal(lawInputs.dayCountBasis, 365);
+
+  const result = calculate({
+    eligibilityOutcome: 'supported',
+    debtMinorUnits: '125000',
+    currency: 'GBP',
+    dueDate: '2026-09-29',
+    asAtDate: '2026-11-15',
+  }, lawInputs);
+
+  assert.equal(result.status, 'calculated');
+  assert.equal(result.daysLate, 47);
+  // 3.75 base plus the 8 point margin, for 47 days on a 365-day basis.
+  assert.equal(result.interest.ratePercent, '11.75');
+  assert.equal(result.interest.amountMinorUnits, '1891');
+  assert.equal(result.fixedCompensationMinorUnits, '7000');
+  assert.equal(result.additionalMinorUnits, '8891');
+});
+
+test('the unapproved committed snapshot yields nothing to the calculator', () => {
+  assert.equal(toLawInputs(committedSnapshot()), null);
+  const result = calculate({
+    eligibilityOutcome: 'supported',
+    debtMinorUnits: '125000',
+    currency: 'GBP',
+    dueDate: '2026-09-29',
+    asAtDate: '2026-11-15',
+  }, toLawInputs(committedSnapshot()));
+  assert.equal(result.status, 'unavailable');
+  assert.deepEqual(result.reasons.map((reason) => reason.code), ['law_inputs_missing']);
 });
