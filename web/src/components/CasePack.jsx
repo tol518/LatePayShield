@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { addCaseCommunication, createCase, fetchCase, fetchCases } from '../lib/casePack.js';
+import {
+  DEFAULT_HIGH_VALUE_THRESHOLD_MINOR_UNITS,
+  QUESTIONS,
+  assess,
+} from '../../shared/eligibility.js';
+import {
+  addCaseCommunication,
+  createCase,
+  fetchCase,
+  fetchCases,
+  saveCaseEligibility,
+} from '../lib/casePack.js';
 import { formatDate, formatDrops, shortenId } from '../lib/format.js';
 import { xrplTxUrl } from '../lib/network.js';
 import { CheckCircle, Clock, Document, InfoCircle, Progress, Warning } from './Icons.jsx';
@@ -38,6 +49,34 @@ function emptyCommunication() {
     summary: '',
   };
 }
+
+const OUTCOME_PRESENTATION = {
+  supported: {
+    chip: 'chip--positive',
+    title: 'Inside the supported scope',
+    detail: 'The answers and the case facts raise nothing that has to leave the automated path. This is a routing result, not legal advice.',
+  },
+  needs_information: {
+    chip: 'chip--attention',
+    title: 'More information needed',
+    detail: 'The questionnaire cannot be completed from what the case file records. Nothing downstream may rely on it yet.',
+  },
+  escalate: {
+    chip: 'chip--danger',
+    title: 'Leaves the automated path',
+    detail: 'This case stops here. LatePay Shield offers source-grounded information and drafting support only, and takes no position on this case.',
+  },
+};
+
+const ROUTE_COPY = {
+  professional_review: 'Needs a qualified adviser.',
+  operator_action: 'An operator can resolve this in the case file.',
+};
+
+// Configured per workspace at build time; a routing threshold, not a legal one.
+const HIGH_VALUE_THRESHOLD = Number(
+  import.meta.env.VITE_ELIGIBILITY_HIGH_VALUE_MINOR_UNITS ?? DEFAULT_HIGH_VALUE_THRESHOLD_MINOR_UNITS,
+);
 
 export default function CasePack({ registryState, registeredDraft }) {
   const [caseForm, setCaseForm] = useState(emptyCaseForm);
@@ -150,6 +189,11 @@ export default function CasePack({ registryState, registeredDraft }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  function eligibilitySaved(updated) {
+    setSelectedCase(updated);
+    setCases((current) => current.map((item) => item.id === updated.id ? updated : item));
   }
 
   return (
@@ -274,6 +318,7 @@ export default function CasePack({ registryState, registeredDraft }) {
             communicationError={communicationError}
             onCommunicationChange={updateCommunication}
             onCommunicationSubmit={saveCommunication}
+            onEligibilitySaved={eligibilitySaved}
             saving={saving}
           />
         ) : null}
@@ -282,7 +327,7 @@ export default function CasePack({ registryState, registeredDraft }) {
   );
 }
 
-function CaseDetail({ caseFile, agreement, communication, communicationError, onCommunicationChange, onCommunicationSubmit, saving }) {
+function CaseDetail({ caseFile, agreement, communication, communicationError, onCommunicationChange, onCommunicationSubmit, onEligibilitySaved, saving }) {
   return (
     <div className="case-detail">
       <div className="card case-summary">
@@ -321,6 +366,12 @@ function CaseDetail({ caseFile, agreement, communication, communicationError, on
           <p className="case-empty"><Warning />The linked agreement could not be read from Coston2.</p>
         )}
       </div>
+
+      <EligibilityQuestionnaire
+        caseFile={caseFile}
+        agreement={agreement}
+        onSaved={onEligibilitySaved}
+      />
 
       <div className="card case-communications">
         <div className="case-detail__head">
@@ -372,5 +423,108 @@ function CaseDetail({ caseFile, agreement, communication, communicationError, on
         </form>
       </div>
     </div>
+  );
+}
+
+function EligibilityQuestionnaire({ caseFile, agreement, onSaved }) {
+  const savedAnswers = caseFile.eligibility?.answers;
+  const [answers, setAnswers] = useState(savedAnswers ?? {});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setAnswers(savedAnswers ?? {});
+    setError('');
+  }, [caseFile.id, savedAnswers]);
+
+  const assessment = useMemo(() => assess(answers, {
+    invoiceAmountMinorUnits: caseFile.invoiceAmountMinorUnits,
+    invoiceCurrency: caseFile.invoiceCurrency,
+    invoiceDueDate: caseFile.invoiceDueDate,
+    agreementDueAtSeconds: agreement?.dueAt,
+    highValueThresholdMinorUnits: HIGH_VALUE_THRESHOLD,
+  }), [answers, caseFile, agreement]);
+
+  const presentation = OUTCOME_PRESENTATION[assessment.outcome];
+
+  async function save(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      onSaved(await saveCaseEligibility(caseFile.id, answers));
+    } catch (saveError) {
+      setError(saveError?.message ?? 'The eligibility answers could not be saved.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="card case-eligibility" onSubmit={save}>
+      <div className="case-detail__head">
+        <span>
+          <strong>Eligibility and escalation</strong>
+          <small>Deterministic routing. The local AI takes no part in it.</small>
+        </span>
+        <span className={`chip ${presentation.chip}`}>{presentation.title}</span>
+      </div>
+
+      <div className="eligibility-questions" role="group" aria-label="Eligibility questions">
+        {QUESTIONS.map((question) => (
+          <div className="eligibility-question" key={question.id}>
+            <span id={`eligibility-${question.id}`}>{question.prompt}</span>
+            <span className="eligibility-question__answers" role="radiogroup" aria-labelledby={`eligibility-${question.id}`}>
+              {['yes', 'no', 'unknown'].map((value) => (
+                <label key={value}>
+                  <input
+                    type="radio"
+                    name={question.id}
+                    value={value}
+                    checked={answers[question.id] === value}
+                    onChange={() => {
+                      setAnswers((current) => ({ ...current, [question.id]: value }));
+                      setError('');
+                    }}
+                  />
+                  <span>{value}</span>
+                </label>
+              ))}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className={`state-panel${assessment.outcome === 'escalate' ? ' state-panel--danger' : ''}`} aria-live="polite">
+        <strong>{presentation.title}</strong>
+        <p>{presentation.detail}</p>
+        <p>{assessment.answeredCount} of {assessment.requiredCount} questions answered.</p>
+        {assessment.reasons.length > 0 ? (
+          <ul className="eligibility-outcome__reasons">
+            {assessment.reasons.map((item) => (
+              <li key={item.code}>
+                <strong>{item.summary}</strong>
+                <span>{ROUTE_COPY[item.route]}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
+      {error ? <div className="form-error" role="alert"><Warning /><p>{error}</p></div> : null}
+
+      <div className="form-actions">
+        <button className="btn btn--quiet" type="submit" disabled={saving}>
+          {saving ? <Progress className="is-spinning" /> : <CheckCircle />}
+          {saving ? 'Saving answers…' : 'Save eligibility answers'}
+        </button>
+        {caseFile.eligibility ? (
+          <p className="field__help">
+            Answers saved {new Date(caseFile.eligibility.assessedAt).toLocaleString('en-GB')}. The outcome is recalculated
+            from the current rules and a live agreement read every time this case is opened.
+          </p>
+        ) : null}
+      </div>
+    </form>
   );
 }

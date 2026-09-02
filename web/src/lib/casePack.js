@@ -35,6 +35,14 @@ export function addCaseCommunication(caseId, input) {
   }).then((payload) => payload.case);
 }
 
+export function saveCaseEligibility(caseId, answers) {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/eligibility`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers }),
+  }).then((payload) => payload.case);
+}
+
 /**
  * Convert schema-validated model output into an unconfirmed case-file draft.
  * The caller still requires a human confirmation before persistence.

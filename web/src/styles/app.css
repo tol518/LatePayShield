@@ -2214,6 +2214,60 @@
   border-top: 1px solid var(--border);
 }
 
+.case-eligibility {
+  grid-column: 1 / -1;
+}
+
+.eligibility-questions {
+  display: grid;
+  gap: 0;
+  margin: 20px 0;
+  border-top: 1px solid var(--border);
+}
+
+.eligibility-question {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.eligibility-question__answers {
+  display: flex;
+  gap: 14px;
+}
+
+.eligibility-question__answers label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.eligibility-outcome__reasons {
+  display: grid;
+  gap: 10px;
+  margin-top: var(--s2);
+  padding: 0;
+  list-style: none;
+}
+
+.eligibility-outcome__reasons li {
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.eligibility-outcome__reasons strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .registry-tech {
   margin-top: 16px;
 }
@@ -2366,6 +2420,15 @@
 
   .case-communications {
     grid-column: auto;
+  }
+
+  .case-eligibility {
+    grid-column: auto;
+  }
+
+  .eligibility-question {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
   }
 
   .communication-list li {
