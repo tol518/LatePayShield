@@ -22,3 +22,6 @@ dist/
 # Scripts must never write seeds or keys into it.
 
 .DS_Store
+
+# agent scratch output
+.superpowers/
