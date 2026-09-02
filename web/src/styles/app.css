@@ -61,11 +61,10 @@
   color: var(--ink);
 }
 
-.brand__mark {
-  width: 26px;
-  height: 26px;
+.brand__logo {
+  height: 56px;
+  width: auto;
   flex: none;
-  color: var(--primary);
 }
 
 .topbar__nav {
@@ -1385,23 +1384,6 @@
   border-right: 1px solid var(--border);
 }
 
-.brand__mark-wrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  color: #fff;
-  background: var(--primary);
-  border-radius: 9px;
-}
-
-.brand__mark-wrap .brand__mark {
-  width: 23px;
-  height: 23px;
-  color: currentColor;
-}
-
 .sidebar__brand {
   justify-content: flex-start;
   margin: 0 8px 34px;
@@ -1463,11 +1445,15 @@
   width: 34px;
   height: 34px;
   flex: none;
-  color: #17345d;
   background: #e9f1fd;
   border-radius: 50%;
-  font-size: 12px;
-  font-weight: 700;
+}
+
+.workspace-account__avatar img,
+.topbar__avatar img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
 }
 
 .workspace-account span:last-child,
@@ -2063,9 +2049,8 @@
     font-size: 15px;
   }
 
-  .mobile-brand .brand__mark-wrap {
-    width: 31px;
-    height: 31px;
+  .mobile-brand .brand__logo {
+    height: 40px;
   }
 
   .topbar__identity,

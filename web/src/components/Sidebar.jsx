@@ -63,8 +63,7 @@ export default function Sidebar() {
   return (
     <aside className="sidebar" aria-label="Workspace navigation">
       <a className="brand sidebar__brand" href="#main">
-        <span className="brand__mark-wrap"><ShieldCheck className="brand__mark" /></span>
-        <span>LatePay Shield</span>
+        <img alt="LatePay Shield" className="brand__logo" src="/LPTXT.png" />
       </a>
 
       <nav className="sidebar__nav" aria-label="Primary">
@@ -87,7 +86,9 @@ export default function Sidebar() {
 
       <div className="sidebar__foot">
         <div className="workspace-account">
-          <span className="workspace-account__avatar" aria-hidden="true">LP</span>
+          <span className="workspace-account__avatar" aria-hidden="true">
+            <img alt="" src="/LPLogo.png" />
+          </span>
           <span>
             <strong>LatePay workspace</strong>
             <small>Local prototype</small>
