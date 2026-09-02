@@ -426,16 +426,30 @@ function CaseDetail({ caseFile, agreement, communication, communicationError, on
   );
 }
 
+function answersEqual(a, b) {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
 function EligibilityQuestionnaire({ caseFile, agreement, onSaved }) {
-  const savedAnswers = caseFile.eligibility?.answers;
-  const [answers, setAnswers] = useState(savedAnswers ?? {});
+  const savedAnswers = caseFile.eligibility?.answers ?? {};
+  const [answers, setAnswers] = useState(savedAnswers);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Reset only when the operator moves to a different case. caseFile is
+  // otherwise replaced with a fresh object whenever anything on this case is
+  // saved (a communication note, for instance), and that must not clobber
+  // eligibility answers the operator hasn't saved yet.
   useEffect(() => {
-    setAnswers(savedAnswers ?? {});
+    setAnswers(caseFile.eligibility?.answers ?? {});
     setError('');
-  }, [caseFile.id, savedAnswers]);
+  }, [caseFile.id]);
+
+  const isDirty = !answersEqual(answers, savedAnswers);
 
   const assessment = useMemo(() => assess(answers, {
     invoiceAmountMinorUnits: caseFile.invoiceAmountMinorUnits,
@@ -511,6 +525,12 @@ function EligibilityQuestionnaire({ caseFile, agreement, onSaved }) {
         ) : null}
       </div>
 
+      {isDirty ? (
+        <p className="assistant-note assistant-note--attention">
+          <InfoCircle />This outcome is based on answers that are not saved yet.
+        </p>
+      ) : null}
+
       {error ? <div className="form-error" role="alert"><Warning /><p>{error}</p></div> : null}
 
       <div className="form-actions">
@@ -520,8 +540,9 @@ function EligibilityQuestionnaire({ caseFile, agreement, onSaved }) {
         </button>
         {caseFile.eligibility ? (
           <p className="field__help">
-            Answers saved {new Date(caseFile.eligibility.assessedAt).toLocaleString('en-GB')}. The outcome is recalculated
-            from the current rules and a live agreement read every time this case is opened.
+            {isDirty
+              ? `Last saved ${new Date(caseFile.eligibility.assessedAt).toLocaleString('en-GB')}, before these answers changed.`
+              : `Answers saved ${new Date(caseFile.eligibility.assessedAt).toLocaleString('en-GB')}. The outcome is recalculated from the current rules and a live agreement read every time this case is opened.`}
           </p>
         ) : null}
       </div>
