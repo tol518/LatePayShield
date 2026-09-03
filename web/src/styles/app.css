@@ -193,6 +193,7 @@
 .section {
   padding: var(--s6) 0;
   border-top: 1px solid var(--border);
+  scroll-margin-top: 94px;
 }
 
 .section__head {
@@ -1571,6 +1572,7 @@
   max-width: 1240px;
   margin: 0 auto;
   padding: 40px 40px 0;
+  scroll-margin-top: 94px;
 }
 
 .workspace > .section,
@@ -1957,16 +1959,6 @@
 #registry .section__head p {
   max-width: 740px;
   font-size: 14px;
-}
-
-#prepare {
-  border-top: 1px solid var(--border);
-  scroll-margin-top: 94px;
-}
-
-#cases {
-  scroll-margin-top: 94px;
-  border-top: 1px solid var(--border);
 }
 
 #cases .section__head {

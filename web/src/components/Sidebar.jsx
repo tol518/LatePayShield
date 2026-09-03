@@ -8,8 +8,11 @@ import {
   ShieldCheck,
 } from './Icons.jsx';
 
+/* '#main' rather than '#assistant': the AI extraction panel it would otherwise
+   point at only renders when the local assistant is switched on, and this link
+   has to work with it off too. */
 const NAV = [
-  { href: '#assistant', label: 'Invoice protection', icon: Document },
+  { href: '#main', label: 'Invoice protection', icon: Document },
   { href: '#prepare', label: 'Agreements', icon: CheckCircle },
   { href: '#registry', label: 'Payments', icon: Clock },
   { href: '#cases', label: 'Case files', icon: Document },
@@ -19,7 +22,7 @@ const NAV = [
 ];
 
 export default function Sidebar() {
-  const [activeSection, setActiveSection] = useState('assistant');
+  const [activeSection, setActiveSection] = useState('main');
 
   useEffect(() => {
     const sections = NAV
@@ -27,6 +30,16 @@ export default function Sidebar() {
       .filter(Boolean);
 
     function updateActiveSection() {
+      // '#main' wraps every other tracked section, so near the very top of the
+      // page its heading can sit only a few pixels above the next section's,
+      // both inside the activation band below. Landing at the top always means
+      // "Invoice protection" is current, regardless of what happens to be
+      // hiding just under the fold.
+      if (window.scrollY < 10) {
+        setActiveSection('main');
+        return;
+      }
+
       const activationLine = window.innerHeight * 0.4;
       const current = [...sections]
         .sort((first, second) => {
