@@ -19,7 +19,7 @@
     "@flarenetwork/flare-periphery-contracts": "^0.1.52",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "dotenv": "^17.4.2",
-    "hardhat": "^2.29.1"
+    "hardhat": "^3.15.0"
   },
   "dependencies": {
     "ethers": "^6.17.0",
