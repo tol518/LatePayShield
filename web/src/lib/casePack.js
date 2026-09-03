@@ -16,7 +16,11 @@ export function fetchCases() {
 }
 
 export function fetchCase(id) {
-  return request(`/api/cases/${encodeURIComponent(id)}`).then((payload) => payload.case);
+  // The detail read carries the server's own routing verdict alongside the case,
+  // so the interface states the decision the send gate will enforce rather than
+  // deriving a second opinion (task 8).
+  return request(`/api/cases/${encodeURIComponent(id)}`)
+    .then((payload) => ({ ...payload.case, delivery: payload.delivery ?? null }));
 }
 
 export function createCase(input) {
@@ -41,6 +45,38 @@ export function saveCaseEligibility(caseId, answers) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers }),
   }).then((payload) => payload.case);
+}
+
+export function createCaseDraft(caseId, input) {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/drafts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((payload) => payload.case);
+}
+
+export function updateCaseDraft(caseId, draftId, input) {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/drafts/${encodeURIComponent(draftId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((payload) => payload.case);
+}
+
+export function reviewCaseDraft(caseId, draftId, input) {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/drafts/${encodeURIComponent(draftId)}/reviews`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  }).then((payload) => payload.case);
+}
+
+export function requestDraftSendAuthorization(caseId, draftId, expectedVersion) {
+  return request(`/api/cases/${encodeURIComponent(caseId)}/drafts/${encodeURIComponent(draftId)}/send-authorizations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expectedVersion }),
+  }).then((payload) => payload.authorization);
 }
 
 /**

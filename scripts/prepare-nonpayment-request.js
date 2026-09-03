@@ -61,12 +61,13 @@ async function main() {
     );
   }
 
-  // The contract pins the request to one drop below the expected amount and
-  // rejects anything else, so this is not a free choice. Note that the live
-  // verifier matches payments at or above this value rather than strictly
-  // above it, which makes the bound one drop wider than the interface docs
-  // imply. It stays safe against a false overdue either way.
-  const threshold = (BigInt(agreement.terms.amountDrops) - 1n).toString();
+  // The contract pins the request to exactly the expected amount and rejects
+  // anything else, so this is not a free choice. That is the right threshold
+  // because the live verifier was measured to match payments at or above
+  // `amount`, not strictly above it: a payment of exactly this many drops still
+  // blocks an overdue verdict. The earlier `- 1` bound was one drop wider and
+  // also blocked on a payment one drop short.
+  const threshold = BigInt(agreement.terms.amountDrops).toString();
 
   const requestBody = {
     minimalBlockNumber: String(agreement.startLedger),
@@ -88,7 +89,7 @@ async function main() {
     `Search until:     after ${requestBody.deadlineTimestamp} ` +
       `(${new Date(agreement.dueAt * 1000).toISOString()})`
   );
-  console.log(`Above drops:      ${threshold} (expected ${agreement.terms.amountDrops} minus one)`);
+  console.log(`At or above drops: ${threshold} (the agreement's expected amount)`);
   console.log(`Destination tag:  ${requestBody.destinationTag}`);
   console.log(`Proof owner:      ${requestBody.proofOwner}`);
 

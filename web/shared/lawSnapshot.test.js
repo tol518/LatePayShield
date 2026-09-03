@@ -325,15 +325,20 @@ test('the committed snapshot drives the calculator once approved', () => {
   assert.equal(result.additionalMinorUnits, '8891');
 });
 
-test('the unapproved committed snapshot yields nothing to the calculator', () => {
-  assert.equal(toLawInputs(committedSnapshot()), null);
+test('an unapproved snapshot yields nothing to the calculator', () => {
+  /* The committed snapshot was approved by a person on 3 September 2026, so the
+   * refusal is exercised against a copy with the approval stripped. The
+   * behaviour is what matters and it must stay covered: without a human
+   * sign-off there are no figures, whatever else the file contains. */
+  const unapproved = { ...committedSnapshot(), approvedBy: null, approvedAt: null };
+  assert.equal(toLawInputs(unapproved), null);
   const result = calculate({
     eligibilityOutcome: 'supported',
     debtMinorUnits: '125000',
     currency: 'GBP',
     dueDate: '2026-09-29',
     asAtDate: '2026-11-15',
-  }, toLawInputs(committedSnapshot()));
+  }, toLawInputs(unapproved));
   assert.equal(result.status, 'unavailable');
   assert.deepEqual(result.reasons.map((reason) => reason.code), ['law_inputs_missing']);
 });

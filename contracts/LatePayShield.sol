@@ -148,8 +148,8 @@ contract LatePayShield {
         uint64 startLedger,
         uint64 dueAt
     ) external returns (uint256 agreementId) {
-        // expectedDrops must exceed zero: the nonexistence request encodes
-        // (expectedDrops - 1) as its search threshold and would underflow at zero.
+        // expectedDrops must exceed zero: a zero minimum would make every payment,
+        // and every absence of one, satisfy the amount test.
         if (
             invoiceHash == bytes32(0) ||
             xrplDestinationHash == bytes32(0) ||
@@ -251,11 +251,19 @@ contract LatePayShield {
 
         IXRPPaymentNonexistence.RequestBody calldata q = proof.data.requestBody;
 
-        // The attestation searches for a payment received in an amount STRICTLY GREATER
-        // than `amount`. Requesting expectedDrops would ignore a payment of exactly
-        // expectedDrops and confirm a false overdue, so the threshold must be one drop
-        // lower. expectedDrops > 0 is enforced at creation, so this cannot underflow.
-        if (q.amount != uint256(a.expectedDrops) - 1) revert EvidenceWindowMismatch();
+        // The attestation's interface documents the search as STRICTLY GREATER than
+        // `amount`, but the live Coston2 verifier was measured to match at or above it:
+        // probing agreement 2's window, which contains a payment of exactly 2,000,000
+        // drops, the verifier refused requests for 1,999,998 through 2,000,000 and
+        // accepted 2,000,001, so the boundary is `receivedAmount >= amount`. See
+        // evidence/fdc-nonexistence-threshold-probe.json.
+        //
+        // Requesting expectedDrops is therefore the correct threshold: a payment of
+        // exactly expectedDrops still blocks an overdue verdict, and unlike the previous
+        // `expectedDrops - 1` it no longer also blocks on a payment one drop short —
+        // which used to leave such an agreement recordable as neither paid nor overdue,
+        // with markDisputed its only exit.
+        if (q.amount != uint256(a.expectedDrops)) revert EvidenceWindowMismatch();
 
         if (q.destinationAddressHash != a.xrplDestinationHash) revert DestinationMismatch();
         if (!q.checkDestinationTag || q.destinationTag != a.destinationTag) {

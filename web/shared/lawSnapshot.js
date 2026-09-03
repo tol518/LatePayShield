@@ -74,7 +74,10 @@ function parseInstant(value) {
  * A host matches only as itself or as a subdomain, so a lookalike host that
  * merely contains an allowlisted domain is refused.
  */
-function allowlisted(url) {
+/* Exported so the refresh script enforces the same allowlist at fetch time
+ * that the validator enforces on the file. Two copies of this rule would be
+ * one copy too many (task 9). */
+export function isAllowedSourceUrl(url) {
   let parsed;
   try {
     parsed = new URL(String(url ?? ''));
@@ -198,10 +201,10 @@ export function validateSnapshot(snapshot) {
       add('snapshot_malformed');
       continue;
     }
-    if (!allowlisted(citation.url)) add('citation_source_not_allowlisted');
+    if (!isAllowedSourceUrl(citation.url)) add('citation_source_not_allowlisted');
   }
   for (const source of snapshot.sources) {
-    if (!source || typeof source !== 'object' || !allowlisted(source.url)) {
+    if (!source || typeof source !== 'object' || !isAllowedSourceUrl(source.url)) {
       add('citation_source_not_allowlisted');
       continue;
     }

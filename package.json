@@ -40,6 +40,7 @@
     "fdc:prepare:overdue": "node scripts/prepare-nonpayment-request.js",
     "fdc:record:overdue": "hardhat run scripts/record-nonpayment-proof.js --network coston2",
     "spike:xrpl": "node scripts/xrpl-spike.js",
-    "test:override-guard": "HARDHAT_CHAIN_ID=114 hardhat test test/VerifierOverrideGuard.test.js"
+    "test:override-guard": "node scripts/run-override-guard.js",
+    "law:refresh": "node scripts/refresh-law-snapshot.mjs"
   }
 }

@@ -57,7 +57,9 @@ async function main() {
   console.log(`\n                      agreement                                                          proof`);
   console.log(`destination hash      ${agreement.xrplDestinationHash}  ${q.destinationAddressHash}`);
   console.log(`destination tag       ${agreement.destinationTag}  ${q.destinationTag}`);
-  console.log(`drops threshold       ${agreement.expectedDrops - 1n} (exact)  ${q.amount}`);
+  // The contract requires exactly expectedDrops. It used to require one drop
+  // lower, which this line still displayed after the correction (D-022).
+  console.log(`drops threshold       ${agreement.expectedDrops} (exact)  ${q.amount}`);
   console.log(`window from           ${agreement.startLedger} (at or before)  ${q.minimalBlockNumber}`);
   console.log(`window until          ${agreement.dueAt} (at or after)  ${q.deadlineTimestamp}`);
   console.log(`\ndeadline passed:      ${now > Number(agreement.dueAt)} (now ${now})`);

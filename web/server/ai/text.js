@@ -24,16 +24,53 @@ export function stripThinking(content) {
 }
 
 /**
+ * A rejected model reply, carrying two descriptions of the same problem.
+ *
+ * `message` is safe to log: structural facts only. `detail` may quote the
+ * model's own bytes and is used solely to brief the one retry SKILLS.md §8
+ * allows. Keeping them apart is what lets the retry be specific without
+ * putting document-derived text in the service log (SKILLS.md §1).
+ */
+export class ModelReplyError extends Error {
+  constructor(message, detail = null) {
+    super(message);
+    this.name = 'ModelReplyError';
+    this.detail = detail;
+  }
+}
+
+/* V8 reports a parse failure in one of two shapes:
+ *
+ *   "Expected double-quoted property name in JSON at position 30 (line 3 column 3)"
+ *   "Unexpected token '}', \"{\"a\": 1, \"b\": }\" is not valid JSON"
+ *
+ * The first is purely structural. The second embeds a snippet of the input,
+ * which for these skills is document-derived text that must not reach a log.
+ * So the location is extracted for the log line and the raw message is kept
+ * for the retry only.
+ */
+function safeParseSummary(rawMessage) {
+  const location = /at position (\d+)(?: \(line (\d+) column (\d+)\))?/.exec(String(rawMessage));
+  if (!location) return 'The model response was not valid JSON.';
+  const [, position, line, column] = location;
+  return line
+    ? `The model response was not valid JSON (parse failed at line ${line}, column ${column}).`
+    : `The model response was not valid JSON (parse failed at position ${position}).`;
+}
+
+/**
  * Extract the single top-level JSON object from a cleaned reply.
  *
  * Small models occasionally add a sentence before or after the object. Slicing
  * to the outermost braces recovers those replies without accepting prose as
  * output; anything that still fails to parse is a failure, not a partial
- * success (SKILLS.md §8).
+ * success (SKILLS.md §8). Nothing here repairs malformed JSON: guessing at what
+ * the model meant is exactly the partial success that rule forbids. What it
+ * does instead is say precisely what was wrong, so the retry can fix it.
  */
 export function parseJsonObject(content) {
   const text = stripThinking(content);
-  if (!text) throw new Error('The model returned an empty response.');
+  if (!text) throw new ModelReplyError('The model returned an empty response.');
 
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -42,11 +79,11 @@ export function parseJsonObject(content) {
   let parsed;
   try {
     parsed = JSON.parse(candidate);
-  } catch {
-    throw new Error('The model response was not valid JSON.');
+  } catch (error) {
+    throw new ModelReplyError(safeParseSummary(error?.message), String(error?.message ?? ''));
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('The model response was not a JSON object.');
+    throw new ModelReplyError('The model response was not a JSON object.');
   }
   return parsed;
 }

@@ -160,7 +160,7 @@ Every status must include an icon and text. Do not use a coloured dot alone.
 
 All addresses, hashes, IDs, destination tags, and transaction hashes must be copyable through an adjacent visible control. A successful copy should produce brief feedback such as “Copied”.
 
-Show shortened identifiers in dense views (`0x4A49…78B1`) but preserve access to the complete value. Explorer links must appear only for real identifiers.
+Show shortened identifiers in dense views (`0x1863…6dfa`) but preserve access to the complete value. Explorer links must appear only for real identifiers.
 
 ## Screen-specific guidance
 

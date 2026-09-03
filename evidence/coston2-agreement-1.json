@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-09-03T16:22:06.112Z",
+  "network": "flare-testnet-coston2",
+  "chainId": 114,
+  "contractAddress": "0x1863Ee87a6C66c8a37F481B55c3acEcF3C506dfa",
+  "agreementId": 1,
+  "supplier": "0xBA098299018aa56eE7Cf2372d7017B331a413E0B",
+  "terms": {
+    "termsVersion": 1,
+    "invoiceNumber": "INV-2026-001",
+    "supplierName": "Maya Design Studio",
+    "payerName": "Acme Ltd",
+    "currency": "XRP_TESTNET",
+    "amountDrops": "2000000",
+    "xrplDestination": "riGqhYWGyHuHX87K7ThsXaUxxhKexnGvy",
+    "destinationTag": "2026001",
+    "dueAt": "1788452884"
+  },
+  "invoiceHash": "0x77eaafb3266fc7beace234ab297d107e75da04dd7838595a7bb7de77fe085e58",
+  "xrplDestination": "riGqhYWGyHuHX87K7ThsXaUxxhKexnGvy",
+  "xrplDestinationHash": "0x5f678304b2692f1ae6f01ec6368e6d5565c4745b791df9232dfce6d0e91ee95b",
+  "startLedger": 20454984,
+  "dueAt": 1788452884,
+  "creationTransaction": "0x98946430e52a4d5732b3ed4d8fbf1e63b707747ab07c9469bbc038a0a7b91534",
+  "blockNumber": 34845995,
+  "explorer": "https://coston2-explorer.flare.network/tx/0x98946430e52a4d5732b3ed4d8fbf1e63b707747ab07c9469bbc038a0a7b91534"
+}

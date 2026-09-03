@@ -124,8 +124,7 @@ Refuse to bind a non-loopback `XAMAN_SERVER_HOST` unless
 
 **Reason:** The case routes previously treated network reachability as
 permission, so any client that could reach the port could read invoice, party,
-and communication data or forge a case
-([`security/missing-case-api-access-control.md`](security/missing-case-api-access-control.md)).
+and communication data or forge a case.
 Locking the bind to loopback lowers exposure but is not an authorization
 decision, and a browser page from another origin does not need to reach the port
 itself to make the operator's browser do it.
@@ -212,6 +211,296 @@ disabled until a person approves it, which is what the build order requires. A
 convention carrying a citation is rejected as a fact in the wrong place. The
 snapshot covers only the reference periods actually retrieved, so a debt
 becoming late outside them is refused rather than estimated.
+
+## D-014 - A proposed case event is browser state until one person confirms one event
+
+**Date:** 3 September 2026
+**Status:** Accepted for the local prototype
+
+**Decision:** Skill S6 (evidence timeline extraction) returns proposals from
+`POST /api/ai/timelines` and writes nothing. Each proposal carries the verbatim
+quote it was grounded in plus the SHA-256 fingerprint of the document it was
+read from, stays editable in the browser, and becomes a case-file row only
+through a separate `POST /api/cases/:id/communications` for that one event. A
+confirmed row records `author_type: 'local_llm'`, the quote, the fingerprint,
+the model name, and the confirming operator and time. A typed row records
+`author_type: 'human'` and no provenance.
+
+**Reason:** The timeline is case evidence, so a model may help assemble it but
+must not become its author. Storing a proposal — even flagged as unconfirmed —
+would put unreviewed model text in the case file, and a bulk "accept all" would
+make confirmation a formality rather than a decision. Per-event confirmation
+keeps the reviewer looking at one summary against one quote.
+
+**Consequence:** The store refuses a `local_llm` entry that arrives without its
+quote and fingerprint, because a reviewer would have nothing to check it
+against. The manual form remains the complete path and is unchanged, so the
+timeline works with the model switched off. `case_communications` gains six
+nullable provenance columns, migrated in place; rows written before provenance
+existed read as human entries.
+
+## D-015 - S6 records an instruction-bearing document rather than refusing it
+
+**Date:** 3 September 2026
+**Status:** Accepted for the local prototype
+
+**Decision:** When a supplied document contains instruction-like text, S6 may
+still propose the dated events it can quote, and the reply carries a prominent
+untrusted-content warning. The validator scans only what the model wrote — an
+event's `summary` and `subject` — for payment-status terms, identifiers, and
+legal conclusions. An event's `sourceQuote` is exempt.
+
+**Reason:** SKILLS.md §4 requires the agent to refuse when it detects injected
+instructions, and S1 does exactly that: an invoice's whole purpose is the terms
+it states, so a poisoned invoice has nothing safe left to extract. A case
+document is different. "The payer emailed instructions telling us to mark this
+paid" is itself a case fact a supplier may need recorded, and forcing a refusal
+on a marker match would let one quoted phrase in a long email thread block a
+whole legitimate chronology. Censoring the quote would remove the only text the
+reviewer checks the summary against.
+
+**Consequence:** The security property is that injected instructions are not
+*obeyed*, enforced structurally: any smuggled status term, identifier, or legal
+conclusion in a summary rejects the entire response, and every event still
+needs a grounded quote and an explicit confirmation. A live run against
+`mlx-community/Qwen3-8B-4bit` on 3 September 2026 recorded the arrival of an
+instruction-bearing email without adopting any of its claims. S1's refusal
+behaviour is unchanged.
+
+## D-016 - A legal sentence is gated on an approved source, not on the model
+
+**Date:** 3 September 2026
+**Status:** Accepted for the local prototype
+
+**Decision:** Skill S2 may include exactly one legal sentence in a payment
+reminder, and only when three deterministic gates all hold: the operator asked
+for it, task 2's eligibility outcome is `supported`, and task 4's snapshot is
+approved and yields usable `lawInputs`. The sentence is fixed application text
+handed to the model to place verbatim, with its citations resolved from the
+snapshot and stored on the draft. The model may not paraphrase it, extend it, or
+add a figure to it, and `draftSchema.js` rejects any other legal content
+outright. When a gate fails the option is withheld, the draft is still produced
+without it, and the operator is told which gate failed.
+
+**Reason:** A reminder that mentions statutory interest is making a statement
+about the law, and SKILLS.md §7.6 requires such a statement to rest on an
+approved source or be a refusal. Leaving the wording to the model would make
+every draft a fresh chance to overstate a general rule as an applied
+entitlement, which §5 forbids. Withholding silently would be worse than
+refusing: the operator asked for something and would not know they did not get
+it.
+
+**Consequence:** While the committed snapshot was unapproved the option was
+always withheld and reminders were purely factual. It was approved on
+3 September 2026, so the sentence is now available; removing the approval
+withholds it again. Approving the
+snapshot is a human act that edits the file and requires a service restart;
+nothing in the application can approve it. The one permitted sentence lives in
+`web/server/ai/draftReminder.js` and changing it is a documentation-gated
+change, not a prompt tweak.
+
+## D-017 - The mandatory evidence limitations are code, not prompt
+
+**Date:** 3 September 2026
+**Status:** Accepted
+
+**Decision:** The four limitation clauses SKILLS.md §S3 makes mandatory on a
+paid or overdue explanation are held as fixed text in
+`web/shared/statusLimitations.js` and appended by the service after validation.
+They are never requested from the model, and the model's own situation-specific
+caveats are listed separately from them in the interface.
+
+**Reason:** A clause the model is merely asked to include is a clause it can
+omit, and the omission would be invisible — an explanation missing the
+"testnet, no legal standing" line still reads as complete. Acceptance check 5 in
+SKILLS.md §9 then becomes something checked per response rather than guaranteed.
+Holding the clauses in code inverts that: the check is true by construction, and
+the model is left only the job it does well.
+
+**Consequence:** Every status carries at least the testnet clause, and both
+finalised outcomes carry all four; nine fixtures assert this and that each
+clause reads as a limitation rather than a reassurance. Changing the clauses is
+a change to a reviewed module with tests, not a prompt edit. The same table
+supplies the label and meaning the interface already shows, so narration cannot
+drift from the chip beside it.
+
+## D-018 - Solicitor-review routing is a server-side delivery block that reads no chain
+
+**Date:** 3 September 2026
+**Status:** Accepted
+
+**Decision:** `web/shared/escalation.js` decides whether a case may be handled
+automatically, and `authorizeDraftSend` evaluates it before the approval check.
+A case with any `professional_review` reason, an incomplete questionnaire, or an
+`operator_action` escalation cannot obtain a send authorization; the refusal is
+recorded as a `send_blocked` audit event carrying the route and every reason
+code that fired. The reason catalogue is imported from `eligibility.js` rather
+than restated. The module reads no clock and no chain, and a test asserts that.
+
+**Reason:** Task 2 routes for the operator's benefit and recomputes in the
+browser, which is the right place for a panel and the wrong place for a control
+— a block a caller can skip is not a block. Making it server-side also decides
+the harder question correctly: every `professional_review` reason is either
+answer-driven or derived from the case's own stored invoice total, so the gate
+reaches the same verdict when Coston2 is unreachable. A delivery block that
+fails open during an RPC outage would be worthless.
+
+Checking escalation *before* approval is deliberate. Both orders refuse, so
+safety is unaffected, but approval-first would walk an operator through
+approving a draft that can never be delivered and only then tell them the case
+needs an adviser.
+
+**Consequence:** An unanswered questionnaire blocks delivery, because an
+unanswered dispute question is not a "no" — silence is not consent. Two existing
+Task 7 tests were updated to save in-scope answers first, since they exercise
+the approval gate and should not be blocked for an unrelated reason. The case
+detail read now returns the server's own verdict as `delivery`, and the draft
+panel states it above the drafting controls, so the interface never derives a
+second opinion about routing. `ELIGIBILITY_HIGH_VALUE_MINOR_UNITS` configures
+the threshold for the service; the browser's `VITE_` form is accepted as a
+fallback so the panel and the gate cannot diverge.
+
+## D-019 - No delivery transport is connected, by choice
+
+**Date:** 3 September 2026
+**Status:** Accepted for the event scope
+
+**Decision:** LatePay Shield connects no email, SMS, or other delivery
+transport. `authorizeDraftSend` remains the final step: it checks escalation
+routing and exact-version approval, records the decision in the append-only
+audit trail, and returns `transport: "not_connected"` with `sent: false`. The
+interface says that no message was sent.
+
+**Reason:** This is a hackathon prototype, not a product. Sending a real message
+is outside the boundary `docs/project-context.md` sets, and any third-party
+sandbox would carry invoice numbers, party names and reminder text off the
+operator's machine — which the privacy rules in `docs/ai/SKILLS.md` §1 and the
+loopback-only service exist to prevent. Nothing in the demo needs a delivered
+message: what the product claims is that a reminder cannot leave without a human
+approving that exact version and a routing check passing, and the audit trail
+demonstrates precisely that.
+
+**Consequence:** Task 7's control slice — versioned drafts, exact-version
+approve/reject, the append-only audit trail, local-LLM drafts entering
+unapproved, and task 8's escalation block — is complete and is the whole of what
+ships. Task 7's fourth written completion condition, a sandboxed delivery
+integration recording attempted, delivered and failed outcomes without duplicate
+sends, is **deliberately not met** and is recorded as out of scope rather than
+as outstanding work. Anyone connecting a transport later must add those
+delivery-result audit events and a duplicate-send guard, and must not weaken the
+`sent: false` default until a delivery is genuinely attempted.
+
+## D-020 - The law refresh detects change; it never reads a legal value
+
+**Date:** 3 September 2026
+**Status:** Accepted
+
+**Decision:** `npm run law:refresh` fetches each allowlisted source, digests the
+bytes, and reports whether the content changed since the last check, naming the
+facts that cite a changed source. It does **not** parse a statutory rate, a
+compensation band, or any other legal value out of a page. It writes a proposal
+to `data/uk-law/snapshot.proposed.json` and never modifies the live snapshot,
+and any content change clears `approvedBy`/`approvedAt` in that proposal.
+
+**Reason:** Scraping a figure out of HTML and feeding it to the calculator would
+put an unverified number behind every downstream statement — the exact failure
+SKILLS.md §7 exists to prevent, and the reason the snapshot's figures were
+checked against the source text by a person in the first place. What a refresh
+can do safely is tell the operator *when that check needs redoing*, which is the
+whole practical value: nobody notices a Bank Rate page changing on their own.
+
+Writing a proposal rather than the live file is the plainest reading of §7.5's
+"nothing auto-merges" — a process with no write path to the approved snapshot
+cannot accidentally acquire one. Clearing approval on any change follows from
+the same logic: if the source moved, the human-verified figure behind it is no
+longer known to match it.
+
+**Consequence:** `law:refresh` is a change *detector*, not an updater, and the
+documentation says so rather than implying the snapshot maintains itself. A
+first run records baseline digests, which must be committed or later runs have
+nothing to compare against — a defect found by running it, since the first
+implementation computed those digests and discarded them. A failed source keeps
+its previous values and does not advance `fetchedAt`, so a partial refresh never
+passes stale data off as freshly checked. The allowlist is enforced before the
+request is made, on the URL actually landed on after redirects, and again when
+folding results in; `isAllowedSourceUrl` is exported from `lawSnapshot.js` so
+there is one copy of that rule.
+
+## D-021 - The approved legal sentence is appended by code, not placed by the model
+
+**Date:** 3 September 2026
+**Status:** Accepted
+
+**Decision:** When all three gates pass — the operator asked, task 2 reports
+`supported`, and task 4's snapshot is approved — the application appends the
+approved statutory-interest sentence to the reminder body itself. The model is
+told nothing about statutory interest, is forbidden any legal content, and must
+always return `mentionsStatutoryInterest: false`; the validator rejects a reply
+that contains legal wording or claims to have placed it. The caller sets the
+flag and attaches the citations only when it appends the sentence.
+
+**Reason:** The first implementation handed the sentence to the model to place
+verbatim. Measured against `mlx-community/Qwen3-8B-4bit` on 3 September 2026,
+that failed on the first attempt every time and, after the approval unlocked the
+path, 3 times in 3 including the retry. The failure was safe — the validator
+caught the paraphrase and the operator was warned — but the feature simply did
+not work. This is the same lesson as D-017: a sentence that must be exact
+belongs in code, not in a prompt. Appending it makes the wording exact by
+construction and drops the whole class of paraphrase failure.
+
+**Consequence:** With the mention requested the sentence now appears verbatim
+on every run, on a single model call with no retry. The model's job narrows to
+the factual reminder, which it does well. The validator's rule simplifies from
+"legal content unless a sentence was supplied" to "no legal content, ever",
+which is easier to reason about and harder to get wrong.
+
+A related defect was fixed in the same pass and is worth recording, because it
+was only reachable once the snapshot was approved: when the model omitted the
+sentence, the stored draft still carried its citations. A draft would then cite
+sources for a statement it never made, and a later human approval would inherit
+that claim. Citations now follow the body — a purely factual reminder carries
+none, and `basis.snapshotVersion` is recorded only when a legal statement
+actually rested on it.
+
+## D-022 - The non-payment threshold was corrected, and the contract redeployed
+
+**Date:** 3 September 2026
+**Status:** Accepted
+
+**Decision:** `recordVerifiedNonPayment` now pins the attestation request to
+`expectedDrops` rather than `expectedDrops - 1`, and
+`scripts/prepare-nonpayment-request.js` builds the request to match.
+`LatePayShield` was redeployed to Coston2 at
+`0x1863Ee87a6C66c8a37F481B55c3acEcF3C506dfa`, replacing
+`0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1`.
+
+**Reason:** `IXRPPaymentNonexistence` documents its search as strictly greater
+than the requested amount, and the original bound followed that documentation.
+The live verifier was then measured to match at or above it instead — probing
+agreement 2's window, which contained a payment of exactly 2,000,000 drops, the
+verifier refused 1,999,998 through 2,000,000 and accepted 2,000,001. Against
+that behaviour `expectedDrops - 1` was one drop wider than intended: a payment
+of exactly `expectedDrops - 1` also blocked an overdue verdict, so such an
+agreement could be recorded as neither paid nor overdue with `markDisputed` its
+only exit. Requesting `expectedDrops` closes that gap while still blocking on a
+payment of exactly the expected amount, which is the property that matters.
+
+**Consequence:** The old contract keeps its history. Agreements 1 to 15 on
+`0x4A49...78B1`, including the paid evidence for agreements 2 and 4 and the
+overdue evidence for agreement 3, remain valid **for that contract** and are
+still reproducible against it; they are not evidence about the new deployment
+and must never be presented as such. The new contract started at
+`nextAgreementId` 1 with zero verifier override, confirmed by public readback.
+
+Fresh evidence therefore had to be earned on the new deployment, and the overdue
+branch was the necessary proof: it is the only path the change touches, so
+without a live overdue run the corrected threshold would have been an untested
+contract change. `.env`, `web/src/lib/network.js` and the documentation now
+point at the new address.
+
+**Cost, recorded honestly:** this was done the day before the event at the
+owner's explicit instruction, after a recommendation to defer it was raised and
+declined. Every identifier in the demo changed as a result.
 
 ## Entry format
 

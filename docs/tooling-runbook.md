@@ -16,7 +16,7 @@ Swagger form, chat, issue, commit, or evidence file.
 | Inspect the XRPL payment | XRPL Testnet Explorer | `https://testnet.xrpl.org/transactions/<XRPL_TX_HASH>` | Confirm `tesSUCCESS`, destination, amount, destination tag, and ledger. |
 | Convert an XRPL transaction into an FDC request | Project script (Swagger only to explore) | `npm run fdc:prepare` | Public `abiEncodedRequest`, saved to `evidence/fdc-request-<XRPL_TX>.json`. It posts to `/verifier/xrp/XRPPayment/prepareRequest`—not the generic `/Payment` route—and needs `FDC_VERIFIER_API_KEY`. Swagger is at <https://fdc-verifiers-testnet.flare.network/verifier/xrp/api-doc>. |
 | Submit an FDC request and pay its live fee | Project Hardhat script + Coston2 RPC | `npm run fdc:submit` | Coston2 request transaction hash and calculated voting round. It queries the fee; do not guess it. |
-| Inspect deployment and request transactions | Coston2 Explorer | <https://coston2-explorer.flare.network/> | Public transaction/contract URLs. The deployed LatePayShield contract is `0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1`. |
+| Inspect deployment and request transactions | Coston2 Explorer | <https://coston2-explorer.flare.network/> | Public transaction/contract URLs. The deployed LatePayShield contract is `0x1863Ee87a6C66c8a37F481B55c3acEcF3C506dfa`; the superseded `0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1` is still inspectable. |
 | Track FDC round finalization | Flare Systems Explorer | `https://coston2-systems-explorer.flare.network/voting-round/<ROUND>?tab=fdc` | The relevant finalized voting round. |
 | Retrieve the finalized FDC proof/response | Project Hardhat script + Coston2 DA layer | `npm run fdc:proof` | The Merkle proof and ABI-encoded response, saved to `evidence/fdc-proof-<ROUND>-<XRPL_TX>.json`. It polls until the round finalizes, re-encodes the response to confirm it is byte-identical, and calls the live `FdcVerification` before saving. No API key is required. Swagger is at <https://ctn2-data-availability.flare.network/api-doc#/fdc/fdc_proof_by_request_round_create>. |
 | Create an agreement before the payment that satisfies it | Project Hardhat script | `npm run create:agreement` | The agreement ID and its committed terms, saved to `evidence/coston2-agreement-<id>.json`. It reads the current validated XRPL ledger as the evidence floor, so the matching payment must be sent afterwards. |
@@ -24,6 +24,7 @@ Swagger form, chat, issue, commit, or evidence file.
 | Assert an agreement went unpaid | Project script | `AGREEMENT_ID=<id> npm run fdc:prepare:overdue` | Request bytes for `XRPPaymentNonexistence`, with the search window taken from the agreement rather than chosen. It refuses while the deadline is still open. |
 | Record verified non-payment | Project Hardhat script | `AGREEMENT_ID=<id> npm run fdc:record:overdue` | The public Coston2 transaction that moves an agreement to `OverdueVerified`, saved to `evidence/coston2-overdue-agreement-<id>.json`. |
 | Confirm deployment has the expected live-network configuration | Project Hardhat script + public RPC | `npm run deploy:check:coston2` | Chain ID `114`, deployed bytecode, zero verifier override, and `nextAgreementId`. |
+| Check whether a cited legal source has changed | Project script + the four allowlisted domains | `npm run law:refresh` (add `-- --force` inside 28 days) | A content digest per source and a change report naming the facts to re-verify, written to `data/uk-law/snapshot.proposed.json`. It never edits the live snapshot and never reads a legal value out of a page; a person re-verifies and commits (D-020). |
 
 The Coston2 RPC used by the Hardhat configuration is
 `https://coston2-api.flare.network/ext/C/rpc`. It is public infrastructure, not a
@@ -71,7 +72,7 @@ that `fdc:prepare` writes it to `evidence/` for the next command to read.
 
 ```dotenv
 # Public deployed contract address; not secret.
-LATEPAY_SHIELD_ADDRESS=0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1
+LATEPAY_SHIELD_ADDRESS=0x1863Ee87a6C66c8a37F481B55c3acEcF3C506dfa
 
 # Published public test value; not a secret.
 FDC_VERIFIER_API_KEY=00000000-0000-0000-0000-000000000000

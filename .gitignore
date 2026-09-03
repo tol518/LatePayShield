@@ -28,3 +28,4 @@ web/data/*.sqlite-wal
 
 # agent scratch output
 .superpowers/
+data/uk-law/snapshot.proposed.json

@@ -5,6 +5,7 @@ import { CheckCircle, Document, InfoCircle, Progress, Warning } from './Icons.js
 import { COSTON2, txUrl } from '../lib/network.js';
 import { formatDrops, shortenId } from '../lib/format.js';
 import { walletErrorMessage } from '../lib/walletErrors.js';
+import { checkDeadlineAgainstDueDate } from '../lib/deadlineCheck.js';
 import PaymentJourney from './PaymentJourney.jsx';
 import { savePaymentDestination } from '../lib/paymentInstructions.js';
 import { buildPayerLink } from '../lib/payerLink.js';
@@ -233,6 +234,15 @@ export default function AgreementCreator({ onCreated, suggestions }) {
 
   const busy = phase === 'connecting' || phase === 'submitting';
 
+  /* Known issue 6. The deadline becomes immutable on chain at registration, so
+   * a disagreement with the invoice's own due date is worth raising here and
+   * not only later in the case file. A warning, never a block: which date
+   * governs is the operator's call. */
+  const deadlineWarning = checkDeadlineAgainstDueDate({
+    invoiceDueDate: suggestions?.caseDraft?.invoiceDueDate,
+    deadlineLocal: form.dueAtLocal,
+  });
+
   return (
     <section className="section" id="prepare">
       <div className="shell">
@@ -310,6 +320,20 @@ export default function AgreementCreator({ onCreated, suggestions }) {
                   value={form.dueAtLocal}
                   onChange={updateField}
                 />
+                {deadlineWarning && phase !== 'created' ? (
+                  <p
+                    className={`deadline-check deadline-check--${deadlineWarning.severity}`}
+                    role="status"
+                  >
+                    {deadlineWarning.severity === 'attention' ? <Warning /> : <InfoCircle />}
+                    <span>
+                      {deadlineWarning.message}
+                      <small>
+                        Invoice due date {deadlineWarning.invoiceDueDate} · agreement deadline {deadlineWarning.deadlineDate}
+                      </small>
+                    </span>
+                  </p>
+                ) : null}
               </div>
             </fieldset>
 

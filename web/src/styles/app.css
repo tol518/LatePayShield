@@ -2180,6 +2180,508 @@
   grid-column: 1 / -1;
 }
 
+.draft-approval {
+  grid-column: 1 / -1;
+}
+
+.timeline-suggestions {
+  grid-column: 1 / -1;
+}
+
+/* A poll failed and the data on screen is the last good read. */
+.registry-stale {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--attention-wash-border);
+  border-radius: 10px;
+  background: var(--attention-wash);
+  font-size: 13px;
+}
+
+.registry-stale svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex: none;
+  color: var(--attention);
+}
+
+.registry-stale span {
+  display: grid;
+  gap: 3px;
+}
+
+.registry-stale small {
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* Small muted guidance under a control or a list. Used by the S2, S3 and S6
+   panels; it was referenced before it existed, so the text fell back to body
+   size and read as a heading. */
+.field-note {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.field-note svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.status-explanation {
+  grid-column: 1 / -1;
+}
+
+.status-explanation__actions {
+  margin-top: 16px;
+}
+
+.status-explanation__body {
+  display: grid;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.status-explanation__meaning {
+  font-size: 15px;
+}
+
+.status-explanation__body h4 {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.status-explanation__next {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.status-explanation__next svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex: none;
+}
+
+.status-explanation__next span {
+  display: grid;
+  gap: 2px;
+}
+
+/* Known issue 6. The deadline disagreeing with the invoice due date, raised at
+   the point the deadline is entered rather than only in the case file. */
+.deadline-check {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: -4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.deadline-check--attention {
+  border-color: var(--attention-wash-border);
+  background: var(--attention-wash);
+}
+
+.deadline-check--info {
+  background: var(--surface-quiet);
+}
+
+.deadline-check svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex: none;
+}
+
+.deadline-check--attention svg {
+  color: var(--attention);
+}
+
+.deadline-check span {
+  display: grid;
+  gap: 3px;
+}
+
+.deadline-check small {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Task 8. A case that has left the automated path says so before the drafting
+   and approval controls, not after the operator has approved something. */
+.delivery-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--attention-wash-border);
+  border-radius: 10px;
+  background: var(--attention-wash);
+  font-size: 13px;
+}
+
+.delivery-block--professional_review {
+  border-color: var(--danger-wash-border);
+  background: var(--danger-wash);
+}
+
+.delivery-block__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.delivery-block__head svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--danger);
+}
+
+.delivery-block--operator_action .delivery-block__head svg {
+  color: var(--attention);
+}
+
+.delivery-block ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* S2 suggestion controls inside the existing approval card. */
+.draft-suggest {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.draft-suggest__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.draft-suggest__opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.draft-suggest__opt input {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.draft-citations {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draft-citations li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.draft-citations svg {
+  width: 13px;
+  height: 13px;
+  margin-top: 2px;
+  flex: none;
+}
+
+.draft-citations span {
+  display: grid;
+  gap: 1px;
+}
+
+.timeline-request {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.timeline-request__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.timeline-request__actions small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.timeline-warnings {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-warnings li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Icons.jsx carries no intrinsic size ("Size comes from CSS"), so a flex child
+   with no width fills its container. Always give an icon an explicit box. */
+.timeline-warnings svg {
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  flex: none;
+  color: var(--attention);
+}
+
+.timeline-refusal {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted, transparent);
+  font-size: 13px;
+}
+
+.timeline-refusal p {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.timeline-refusal svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex: none;
+}
+
+.timeline-proposals {
+  display: grid;
+  gap: 16px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-proposals > li {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.timeline-proposal__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.timeline-proposal__head small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* The quote is the reviewable evidence, so it reads as the document's words
+   rather than as the application's prose. */
+.timeline-proposal__quote {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--primary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.timeline-proposal__quote small {
+  color: var(--muted);
+  font-family: var(--font-sans, inherit);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+
+.timeline-proposal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.draft-approval__intro {
+  margin-top: 14px;
+}
+
+.draft-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+  padding: 18px;
+  background: var(--surface-quiet);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.draft-form .draft-actions {
+  grid-column: 1 / -1;
+}
+
+.draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.draft-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.draft-item {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.draft-item__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.draft-item__head > span:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.draft-item__head strong,
+.draft-item__head small {
+  overflow-wrap: anywhere;
+}
+
+.draft-item__head small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.draft-status {
+  flex: none;
+  padding: 5px 9px;
+  color: var(--muted);
+  background: var(--surface-quiet);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.draft-status--approved {
+  color: var(--positive);
+  background: var(--positive-wash);
+  border-color: var(--positive-wash-border);
+}
+
+.draft-status--rejected {
+  color: var(--attention);
+}
+
+.draft-item__body {
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.draft-audit {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.draft-audit summary {
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.draft-audit ol {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.draft-audit li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 12px;
+}
+
+.draft-audit li > svg {
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  color: var(--muted);
+  flex: none;
+}
+
+.draft-audit li > span {
+  display: grid;
+  gap: 2px;
+}
+
+.draft-audit small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .communication-list {
   display: grid;
   gap: 0;
@@ -2204,6 +2706,26 @@
 .communication-list p {
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+.communication-provenance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.communication-provenance svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+
+.communication-provenance q {
+  font-family: var(--mono);
+  font-style: normal;
 }
 
 .communication-form {
@@ -2431,6 +2953,38 @@
     gap: 8px;
   }
 
+  .draft-approval {
+    grid-column: auto;
+  }
+
+  .timeline-suggestions {
+    grid-column: auto;
+  }
+
+  .status-explanation {
+    grid-column: auto;
+  }
+
+  .draft-suggest__controls {
+    display: grid;
+  }
+
+  .draft-suggest__controls .btn {
+    width: 100%;
+  }
+
+  .timeline-proposal__actions .btn {
+    width: 100%;
+  }
+
+  .draft-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .draft-form .draft-actions {
+    grid-column: auto;
+  }
+
   .communication-list li {
     grid-template-columns: minmax(0, 1fr);
     gap: 3px;
@@ -2478,6 +3032,7 @@
   .case-form,
   .case-summary,
   .case-evidence,
+  .draft-approval,
   .case-communications {
     padding: 18px;
   }

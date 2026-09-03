@@ -29,10 +29,17 @@ const ISO_CURRENCY = /^[A-Z]{3}$/;
 const MAX_VALUE_LENGTH = 200;
 const MAX_WARNING_LENGTH = 400;
 
-class SchemaError extends Error {}
+class SchemaError extends Error {
+  constructor(message, detail = null) {
+    super(message);
+    this.detail = detail;
+  }
+}
 
-function reject(message) {
-  throw new SchemaError(message);
+/* `message` is the category, safe to log. `detail` may quote the model's own
+ * words and is used only to brief the single retry (SKILLS.md §1 and §8). */
+function reject(message, detail = null) {
+  throw new SchemaError(message, detail);
 }
 
 function confidenceOf(value, fallback = 'low') {
@@ -194,7 +201,9 @@ function validateExtractionBody(raw, invoiceText) {
  *
  * @param {object} raw Parsed JSON object from the model.
  * @param {string} invoiceText The exact text sent to the model, for quote grounding.
- * @returns {{ok: true, value: object} | {ok: false, error: string}}
+ * @returns {{ok: true, value: object} | {ok: false, error: string, detail: ?string}}
+ *   `error` is the log-safe category; `detail`, when present, may quote the
+ *   model's own words and is only for briefing the retry.
  */
 export function validateExtraction(raw, invoiceText) {
   try {
@@ -203,7 +212,7 @@ export function validateExtraction(raw, invoiceText) {
     if (raw.skill !== 'extraction') reject('skill must be "extraction" or "refusal"');
     return { ok: true, value: validateExtractionBody(raw, invoiceText) };
   } catch (error) {
-    if (error instanceof SchemaError) return { ok: false, error: error.message };
+    if (error instanceof SchemaError) return { ok: false, error: error.message, detail: error.detail };
     throw error;
   }
 }
