@@ -17,7 +17,7 @@
   "private": true,
   "devDependencies": {
     "@flarenetwork/flare-periphery-contracts": "^0.1.52",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
     "dotenv": "^17.4.2",
     "hardhat": "^2.29.1"
   },
