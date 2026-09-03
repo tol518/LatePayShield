@@ -146,7 +146,7 @@ function EmptyState() {
     <div className="state-panel">
       <span className="chip chip--neutral"><InfoCircle />No agreements registered</span>
       <p>
-        The contract is deployed and reachable, and its registry is genuinely empty —{' '}
+        The contract is deployed and reachable, and its registry is genuinely empty:{' '}
         <span className="mono">nextAgreementId</span> is 1. The first agreement recorded will
         appear here.
       </p>

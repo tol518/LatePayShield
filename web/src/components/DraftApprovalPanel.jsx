@@ -30,7 +30,7 @@ function emptyDraft() {
 function statusLabel(status) {
   if (status === 'approved') return 'Approved';
   if (status === 'rejected') return 'Rejected';
-  return 'Draft — not approved';
+  return 'Draft, not approved';
 }
 
 export default function DraftApprovalPanel({

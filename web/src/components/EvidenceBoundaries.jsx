@@ -13,7 +13,7 @@ const EXCLUDES = [
   'That a customer did not pay. A non-payment result speaks only about the destination, tag, amount, and window that were checked.',
   'The memo or reference on a payment. It is captured as supporting evidence but is not checked by the contract.',
   'Any legal obligation, debt enforceability, or collection outcome. This is a record, not a remedy.',
-  'That payment happened off the XRPL Testnet — by bank transfer, card, or any other route.',
+  'That payment happened off the XRPL Testnet, by bank transfer, card, or any other route.',
 ];
 
 export default function EvidenceBoundaries() {

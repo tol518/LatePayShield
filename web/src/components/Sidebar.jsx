@@ -97,7 +97,7 @@ export default function Sidebar() {
         </div>
         <p className="sidebar__testnet">
           <span><InfoCircle /> XRPL Testnet · Prototype</span>
-          <small>Test environment — no real funds</small>
+          <small>Test environment, no real funds</small>
         </p>
       </div>
     </aside>

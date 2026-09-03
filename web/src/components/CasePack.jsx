@@ -240,7 +240,7 @@ export default function CasePack({ registryState, registeredDraft }) {
                   <option value="">Choose a live agreement</option>
                   {agreements.map((agreement) => (
                     <option value={agreement.id} key={agreement.id}>
-                      {agreement.reference} — {agreement.uiStatus.replaceAll('_', ' ').toLowerCase()}
+                      {agreement.reference} · {agreement.uiStatus.replaceAll('_', ' ').toLowerCase()}
                     </option>
                   ))}
                 </select>

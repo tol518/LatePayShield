@@ -249,7 +249,7 @@ function ExtractionResult({ extraction, onApply }) {
 
   return (
     <div>
-      <span className="chip chip--testnet"><Person />Proposed — not confirmed</span>
+      <span className="chip chip--testnet"><Person />Proposed, not confirmed</span>
       <h3>{grounded.length} value{grounded.length === 1 ? '' : 's'} quoted from the document</h3>
       {extraction.document ? (
         <p className="assistant-note"><Document /> Read {extraction.document.name} as {extraction.document.format}.</p>

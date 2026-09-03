@@ -589,7 +589,7 @@ function PayerHandoff({ agreementId, destination, review }) {
           <Warning />
           Demo shortcut. You are acting as the payer now, not the supplier. In Xaman, sign with a
           different funded Testnet account from the receiving address{' '}
-          <span className="mono">{shortenId(destination)}</span> — XRPL rejects a payment from an
+          <span className="mono">{shortenId(destination)}</span>. XRPL rejects a payment from an
           account to itself.
         </p>
         <PaymentJourney agreementId={agreementId} review={review} />
