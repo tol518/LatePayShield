@@ -9,9 +9,10 @@ import { getPaymentDestination, getPaymentTransactionHash, savePaymentDestinatio
 import { readPayerLink } from '../lib/payerLink.js';
 
 /* The only section on this page reading live chain state. Everything above it
-   is explanatory copy; everything here came from Coston2 at page load. */
+   is explanatory copy; everything here is re-read from Coston2 on a timer, so a
+   verified outcome appears without the operator reloading the page. */
 export default function LiveRegistry({ state }) {
-  const { phase, registry, agreements, error } = state;
+  const { phase, registry, agreements, error, stale } = state;
 
   return (
     <section className="section" id="registry">
@@ -20,9 +21,24 @@ export default function LiveRegistry({ state }) {
           <p className="eyebrow">Live Coston2 records</p>
           <h2>Recent agreements</h2>
           <p>
-            Current agreement status read from the deployed LatePay Shield contract when this page loaded.
+            Current agreement status, re-read from the deployed LatePay Shield contract every few
+            seconds. The contract remains the only source of truth: a status changes here when it
+            changes on chain, never before.
           </p>
         </div>
+
+        {/* A poll failed, so what follows is the last good read. Saying so is
+            required by docs/architecture.md: retain the identifiers, show a
+            retryable failure, and never let stale data pass as current. */}
+        {stale && (
+          <p className="registry-stale" role="status">
+            <Warning />
+            <span>
+              This is the last successful read; a later refresh failed, so it may be out of date.
+              <small className="mono">{error}</small>
+            </span>
+          </p>
+        )}
 
         <div className="registry__body">
           {phase === 'loading' && <LoadingState />}

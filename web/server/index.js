@@ -8,8 +8,12 @@ import dotenv from 'dotenv';
 import xummSdkPackage from 'xumm-sdk';
 import { readAiConfig } from './ai/config.js';
 import { runExtraction, MAX_INVOICE_CHARACTERS } from './ai/extract.js';
+import { runTimelineExtraction } from './ai/extractTimeline.js';
+import { ExplanationInputError, runExplanation } from './ai/explain.js';
+import { DraftInputError, runReminderDraft } from './ai/draftReminder.js';
+import { readLawSnapshot } from './ai/lawSnapshotFile.js';
 import { extractDocumentText, MAX_DOCUMENT_BYTES, MAX_PDF_PAGES } from './ai/documentText.js';
-import { CaseInputError, CaseStore } from './cases/store.js';
+import { CaseInputError, CaseStateError, CaseStore } from './cases/store.js';
 import {
   AccessError,
   authorizeNetwork,
@@ -65,9 +69,17 @@ const createAttempts = new Map();
 const aiAttempts = new Map();
 const fdcJobs = new Map();
 const fdcQueue = [];
-const caseStore = new CaseStore(process.env.CASE_DATABASE_PATH
-  ? { databasePath: process.env.CASE_DATABASE_PATH }
-  : undefined);
+/* One configured threshold for both the panel and the delivery gate. The
+ * browser reads the VITE_ form at build time; the service is authoritative for
+ * the gate, so it accepts either and falls back to the documented default. */
+const HIGH_VALUE_THRESHOLD = process.env.ELIGIBILITY_HIGH_VALUE_MINOR_UNITS
+  ?? process.env.VITE_ELIGIBILITY_HIGH_VALUE_MINOR_UNITS
+  ?? null;
+
+const caseStore = new CaseStore({
+  ...(process.env.CASE_DATABASE_PATH ? { databasePath: process.env.CASE_DATABASE_PATH } : {}),
+  highValueThresholdMinorUnits: HIGH_VALUE_THRESHOLD,
+});
 let activeFdcJob = null;
 
 function allowRequest(attempts, address, limit) {
@@ -246,6 +258,101 @@ async function aiExtract(request, response) {
     // This fingerprint lets a saved case identify the exact source that was
     // reviewed without persisting the raw invoice text in the first slice.
     sourceSha256: createHash('sha256').update(String(sourceText)).digest('hex'),
+  });
+}
+
+/* S6: propose dated case events from correspondence the operator supplied.
+ *
+ * This route reads and returns. It never writes a case row: a proposal becomes
+ * a timeline entry only when the operator confirms it through
+ * POST /api/cases/:id/communications, one event at a time (D-014).
+ */
+async function aiTimeline(request, response) {
+  const config = readAiConfig();
+  if (!config.ready) {
+    // Not an error: the assistant is optional and the manual timeline form is
+    // complete without it.
+    sendJson(response, 503, { error: config.unavailableReason });
+    return;
+  }
+
+  const body = await readJson(request, MAX_AI_BODY_BYTES);
+  const document = body.document ? await extractDocumentText(body.document) : null;
+  const sourceText = document?.text ?? body.documentText;
+  const result = await runTimelineExtraction(sourceText);
+  sendJson(response, 200, {
+    ...result,
+    document: document ? { name: document.name, format: document.format, size: document.size } : null,
+    // Confirming an event stores this fingerprint, so a saved entry names the
+    // exact document it was read from without that document being retained.
+    sourceSha256: createHash('sha256').update(String(sourceText)).digest('hex'),
+    modelName: config.model,
+  });
+}
+
+/* S3: narrate one agreement status. Read-only — nothing is written, and the
+ * four mandatory limitation clauses are appended by explain.js from fixed
+ * application text rather than requested from the model. */
+async function aiExplanation(request, response) {
+  const config = readAiConfig();
+  if (!config.ready) {
+    sendJson(response, 503, { error: config.unavailableReason });
+    return;
+  }
+  const body = await readJson(request);
+  const result = await runExplanation(body.status, body.facts);
+  sendJson(response, 200, { ...result, modelName: config.model });
+}
+
+/* S2: draft one payment reminder for a confirmed case, and store it through the
+ * existing task 7 gate as an unapproved `local_llm` draft. Generation is not
+ * approval: a human must still approve the exact version before any hand-off. */
+async function aiReminderDraft(request, response, caseId, operatorId) {
+  // Ownership first, so the answer for someone else's case never depends on
+  // whether the assistant happens to be configured.
+  const caseFile = caseStore.getCase(caseId, operatorId);
+  if (!caseFile) {
+    sendJson(response, 404, { error: 'Case file not found.' });
+    return;
+  }
+
+  const config = readAiConfig();
+  if (!config.ready) {
+    sendJson(response, 503, { error: config.unavailableReason });
+    return;
+  }
+
+  const body = await readJson(request);
+  const result = await runReminderDraft({
+    caseFile,
+    asAtDate: body.asAtDate,
+    tone: body.tone,
+    mentionStatutoryInterest: body.mentionStatutoryInterest === true,
+    // Task 2's outcome is recomputed by the browser from the stored answers and
+    // a live agreement read, so the caller states it. It only ever narrows what
+    // this route will permit.
+    eligibilityOutcome: typeof body.eligibilityOutcome === 'string' ? body.eligibilityOutcome : null,
+    snapshot: readLawSnapshot(),
+  });
+
+  if (result.skill === 'refusal') {
+    sendJson(response, 200, { refusal: result, case: caseFile, modelName: config.model });
+    return;
+  }
+
+  const stored = caseStore.createDraft(caseId, {
+    purpose: 'payment_reminder',
+    subject: result.subject,
+    body: result.body,
+    citations: result.citations,
+  }, operatorId, { authorType: 'local_llm' });
+
+  sendJson(response, 201, {
+    case: stored,
+    draft: { tone: result.tone, mentionsStatutoryInterest: result.mentionsStatutoryInterest },
+    warnings: result.warnings,
+    basis: result.basis,
+    modelName: config.model,
   });
 }
 
@@ -565,6 +672,31 @@ const server = http.createServer(async (request, response) => {
       await aiExtract(request, response);
       return;
     }
+    if (request.method === 'POST' && url.pathname === '/api/ai/timelines') {
+      if (!allowAiRequest(request.socket.remoteAddress ?? 'unknown')) {
+        sendJson(response, 429, { error: 'Too many suggestion requests. Wait one minute, or add the timeline entries manually.' });
+        return;
+      }
+      await aiTimeline(request, response);
+      return;
+    }
+    if (request.method === 'POST' && url.pathname === '/api/ai/explanations') {
+      if (!allowAiRequest(request.socket.remoteAddress ?? 'unknown')) {
+        sendJson(response, 429, { error: 'Too many explanation requests. Wait one minute; the status and evidence panels are unaffected.' });
+        return;
+      }
+      await aiExplanation(request, response);
+      return;
+    }
+    const reminderMatch = request.method === 'POST' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})\/drafts\/suggestions$/i);
+    if (reminderMatch) {
+      if (!allowAiRequest(request.socket.remoteAddress ?? 'unknown')) {
+        sendJson(response, 429, { error: 'Too many drafting requests. Wait one minute, or write the reminder yourself.' });
+        return;
+      }
+      await aiReminderDraft(request, response, reminderMatch[1], operatorId);
+      return;
+    }
     if (request.method === 'GET' && url.pathname === '/api/cases') {
       sendJson(response, 200, { cases: caseStore.listCases(operatorId) });
       return;
@@ -577,7 +709,9 @@ const server = http.createServer(async (request, response) => {
     if (caseMatch) {
       const caseFile = caseStore.getCase(caseMatch[1], operatorId);
       if (!caseFile) sendJson(response, 404, { error: 'Case file not found.' });
-      else sendJson(response, 200, { case: caseFile });
+      // The gate's own verdict, so the interface states the same routing the
+      // server will enforce rather than deriving a second opinion (task 8).
+      else sendJson(response, 200, { case: caseFile, delivery: caseStore.deliveryDecisionFor(caseMatch[1], operatorId) });
       return;
     }
     const communicationMatch = request.method === 'POST' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})\/communications$/i);
@@ -593,6 +727,38 @@ const server = http.createServer(async (request, response) => {
       const caseFile = caseStore.saveEligibility(eligibilityMatch[1], answers, operatorId);
       if (!caseFile) sendJson(response, 404, { error: 'Case file not found.' });
       else sendJson(response, 200, { case: caseFile });
+      return;
+    }
+    const draftCreateMatch = request.method === 'POST' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})\/drafts$/i);
+    if (draftCreateMatch) {
+      // Public case routes create human-authored drafts only. A future local-LLM
+      // route must set its author type internally after schema validation.
+      const caseFile = caseStore.createDraft(draftCreateMatch[1], await readJson(request), operatorId);
+      if (!caseFile) sendJson(response, 404, { error: 'Case file not found.' });
+      else sendJson(response, 201, { case: caseFile });
+      return;
+    }
+    const draftUpdateMatch = request.method === 'PUT' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})\/drafts\/([0-9a-f-]{36})$/i);
+    if (draftUpdateMatch) {
+      const caseFile = caseStore.updateDraft(draftUpdateMatch[1], draftUpdateMatch[2], await readJson(request), operatorId);
+      if (!caseFile) sendJson(response, 404, { error: 'Draft not found.' });
+      else sendJson(response, 200, { case: caseFile });
+      return;
+    }
+    const draftReviewMatch = request.method === 'POST' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})\/drafts\/([0-9a-f-]{36})\/reviews$/i);
+    if (draftReviewMatch) {
+      const caseFile = caseStore.reviewDraft(draftReviewMatch[1], draftReviewMatch[2], await readJson(request), operatorId);
+      if (!caseFile) sendJson(response, 404, { error: 'Draft not found.' });
+      else sendJson(response, 200, { case: caseFile });
+      return;
+    }
+    const sendAuthorizationMatch = request.method === 'POST' && url.pathname.match(/^\/api\/cases\/([0-9a-f-]{36})\/drafts\/([0-9a-f-]{36})\/send-authorizations$/i);
+    if (sendAuthorizationMatch) {
+      const authorization = caseStore.authorizeDraftSend(
+        sendAuthorizationMatch[1], sendAuthorizationMatch[2], await readJson(request), operatorId,
+      );
+      if (!authorization) sendJson(response, 404, { error: 'Draft not found.' });
+      else sendJson(response, 200, { authorization });
       return;
     }
     if (request.method === 'POST' && url.pathname === '/api/fdc/payments') {
@@ -633,6 +799,10 @@ const server = http.createServer(async (request, response) => {
     }
     if (error instanceof CaseInputError) {
       sendJson(response, 400, { error: error.message });
+      return;
+    }
+    if (error instanceof CaseStateError) {
+      sendJson(response, 409, { error: error.message });
       return;
     }
     sendJson(response, error?.message?.includes('required') || error?.message?.includes('must') ? 400 : 502, {

@@ -53,8 +53,10 @@ function nonexistenceProof(overrides = {}) {
     deadlineBlockNumber: START_LEDGER + 1000n,
     deadlineTimestamp: 0n, // set by caller
     destinationAddressHash: DEST_HASH,
-    // strictly-greater-than semantics: threshold is one drop below expected
-    amount: EXPECTED_DROPS - 1n,
+    // The live verifier matches at or above `amount`, so the threshold is the
+    // expected amount itself: a payment of exactly this still blocks an overdue
+    // verdict, and a payment one drop short no longer does.
+    amount: EXPECTED_DROPS,
     checkFirstMemoData: false,
     firstMemoDataHash: ethers.ZeroHash,
     checkDestinationTag: true,
@@ -312,12 +314,27 @@ describe("LatePayShield", function () {
         .withArgs(dueAt);
     });
 
-    it("rejects a threshold of expectedDrops, which would ignore an exact payment", async function () {
+    it("rejects a threshold one drop below expected, which widens the window needlessly", async function () {
+      // The old bound. Against the verifier's measured `>=` behaviour it also
+      // blocked on a payment of expectedDrops - 1, leaving such an agreement
+      // recordable as neither paid nor overdue.
       const id = await create();
       await time.increaseTo(dueAt + 1n);
       await expect(
         shield.recordVerifiedNonPayment(
-          id, nonexistenceProof({ deadlineTimestamp: dueAt, amount: EXPECTED_DROPS })
+          id, nonexistenceProof({ deadlineTimestamp: dueAt, amount: EXPECTED_DROPS - 1n })
+        )
+      ).to.be.revertedWithCustomError(shield, "EvidenceWindowMismatch");
+    });
+
+    it("rejects a threshold above expected, which could hide a qualifying payment", async function () {
+      // The dangerous direction: a higher threshold would let the attestation
+      // ignore a payment that actually satisfied the agreement.
+      const id = await create();
+      await time.increaseTo(dueAt + 1n);
+      await expect(
+        shield.recordVerifiedNonPayment(
+          id, nonexistenceProof({ deadlineTimestamp: dueAt, amount: EXPECTED_DROPS + 1n })
         )
       ).to.be.revertedWithCustomError(shield, "EvidenceWindowMismatch");
     });

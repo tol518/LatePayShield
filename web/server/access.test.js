@@ -19,6 +19,17 @@ const OPERATOR_TOKEN = 'a'.repeat(48);
 const OTHER_TOKEN = 'b'.repeat(48);
 const TOKEN_HEADER = 'X-LatePay-Operator-Token';
 
+const IN_SCOPE_ANSWERS = {
+  partiesActingInBusiness: 'yes',
+  payerBasedInUk: 'yes',
+  invoiceDelivered: 'yes',
+  debtDisputed: 'no',
+  payerInsolvencyProcess: 'no',
+  courtProceedings: 'no',
+  contractTermsOver60Days: 'no',
+  debtOlderThanSixYears: 'no',
+};
+
 function confirmedCase(agreementId) {
   return {
     agreementId,
@@ -162,6 +173,73 @@ test('an authenticated operator only sees and changes its own cases', async (t) 
   assert.equal((await ownDetail.json()).case.communicationCount, 0);
 });
 
+test('the HTTP draft lifecycle blocks send hand-off until the exact version is approved', async (t) => {
+  const service = await startServer();
+  t.after(() => service.stop());
+  const headers = { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN };
+
+  const created = await fetch(`${service.origin}/api/cases`, {
+    method: 'POST', headers, body: JSON.stringify(confirmedCase(105)),
+  });
+  const caseId = (await created.json()).case.id;
+
+  // Clear the task 8 routing gate: this test is about the approval gate, and an
+  // unanswered questionnaire blocks delivery on its own.
+  const cleared = await fetch(`${service.origin}/api/cases/${caseId}/eligibility`, {
+    method: 'PUT', headers, body: JSON.stringify({ answers: IN_SCOPE_ANSWERS }),
+  });
+  assert.equal(cleared.status, 200);
+
+  const draftResponse = await fetch(`${service.origin}/api/cases/${caseId}/drafts`, {
+    method: 'POST', headers, body: JSON.stringify({
+      subject: 'Payment reminder', body: 'Please arrange payment.', authorType: 'local_llm',
+    }),
+  });
+  assert.equal(draftResponse.status, 201);
+  const draft = (await draftResponse.json()).case.drafts[0];
+  assert.equal(draft.status, 'draft');
+  assert.equal(draft.authorType, 'human');
+
+  const blocked = await fetch(`${service.origin}/api/cases/${caseId}/drafts/${draft.id}/send-authorizations`, {
+    method: 'POST', headers, body: JSON.stringify({ expectedVersion: 1 }),
+  });
+  assert.equal(blocked.status, 409);
+
+  const approved = await fetch(`${service.origin}/api/cases/${caseId}/drafts/${draft.id}/reviews`, {
+    method: 'POST', headers, body: JSON.stringify({ action: 'approve', expectedVersion: 1 }),
+  });
+  assert.equal(approved.status, 200);
+  assert.equal((await approved.json()).case.drafts[0].status, 'approved');
+
+  const authorized = await fetch(`${service.origin}/api/cases/${caseId}/drafts/${draft.id}/send-authorizations`, {
+    method: 'POST', headers, body: JSON.stringify({ expectedVersion: 1 }),
+  });
+  assert.equal(authorized.status, 200);
+  const authorization = (await authorized.json()).authorization;
+  assert.equal(authorization.sent, false);
+  assert.equal(authorization.transport, 'not_connected');
+
+  const edited = await fetch(`${service.origin}/api/cases/${caseId}/drafts/${draft.id}`, {
+    method: 'PUT', headers, body: JSON.stringify({ expectedVersion: 1, subject: draft.subject, body: 'Edited after approval.' }),
+  });
+  assert.equal(edited.status, 200);
+  const editedDraft = (await edited.json()).case.drafts[0];
+  assert.equal(editedDraft.version, 2);
+  assert.equal(editedDraft.status, 'draft');
+  assert.equal(editedDraft.approvedVersion, null);
+
+  const blockedAgain = await fetch(`${service.origin}/api/cases/${caseId}/drafts/${draft.id}/send-authorizations`, {
+    method: 'POST', headers, body: JSON.stringify({ expectedVersion: 2 }),
+  });
+  assert.equal(blockedAgain.status, 409);
+
+  const detail = await fetch(`${service.origin}/api/cases/${caseId}`, { headers: { [TOKEN_HEADER]: OPERATOR_TOKEN } });
+  const events = (await detail.json()).case.drafts[0].auditEvents.map((event) => event.eventType);
+  assert.deepEqual(events, [
+    'draft_created', 'send_blocked', 'draft_approved', 'send_authorized', 'draft_updated', 'send_blocked',
+  ]);
+});
+
 test('cross-origin and rebound requests are refused whatever the Content-Type', async (t) => {
   const service = await startServer();
   t.after(() => service.stop());
@@ -298,4 +376,207 @@ test('eligibility answers are authorized, scoped, and validated', async (t) => {
 
   const unchanged = await fetch(`${service.origin}/api/cases/${caseId}`, { headers: { [TOKEN_HEADER]: OPERATOR_TOKEN } });
   assert.equal((await unchanged.json()).case.eligibility.answers.debtDisputed, 'no');
+});
+
+test('the timeline suggestion route is authorized and stays off when the model is disabled', async (t) => {
+  const service = await startServer();
+  t.after(() => service.stop());
+
+  const body = JSON.stringify({ documentText: '14 July 2026 — Reminder sent to accounts@contoso.example about the invoice.' });
+
+  // Reaching the port is not permission, for a suggestion route either.
+  const unauthenticated = await fetch(`${service.origin}/api/ai/timelines`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  });
+  assert.equal(unauthenticated.status, 401);
+
+  // With the assistant off this is a disabled feature, not an error: the reply
+  // says so and the manual timeline form is unaffected.
+  const disabled = await fetch(`${service.origin}/api/ai/timelines`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body,
+  });
+  assert.equal(disabled.status, 503);
+  assert.match((await disabled.json()).error, /AI assistant is disabled/);
+});
+
+test('a confirmed timeline proposal is stored with its provenance, and an ungrounded one is refused', async (t) => {
+  const service = await startServer();
+  t.after(() => service.stop());
+
+  const created = await fetch(`${service.origin}/api/cases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: JSON.stringify(confirmedCase(510)),
+  });
+  assert.equal(created.status, 201);
+  const caseId = (await created.json()).case.id;
+
+  const confirmed = await fetch(`${service.origin}/api/cases/${caseId}/communications`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: JSON.stringify({
+      occurredAt: '2026-08-02T09:00:00.000Z',
+      channel: 'phone',
+      direction: 'inbound',
+      summary: 'Payer said on the call that the payment had been approved.',
+      authorType: 'local_llm',
+      sourceQuote: 'he said the payment had been approved',
+      sourceSha256: 'd'.repeat(64),
+      modelName: 'mlx-community/Qwen3-8B-4bit',
+    }),
+  });
+  assert.equal(confirmed.status, 201);
+  const entry = (await confirmed.json()).case.communications[0];
+  assert.equal(entry.authorType, 'local_llm');
+  assert.equal(entry.sourceQuote, 'he said the payment had been approved');
+  assert.equal(entry.sourceSha256, 'd'.repeat(64));
+  assert.equal(entry.confirmedBy, 'local-operator');
+
+  // A model-authored entry that arrives without its quote or fingerprint cannot
+  // be confirmed: the reviewer would have nothing to check it against.
+  const ungrounded = await fetch(`${service.origin}/api/cases/${caseId}/communications`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: JSON.stringify({
+      occurredAt: '2026-08-02T09:00:00.000Z',
+      channel: 'phone',
+      direction: 'inbound',
+      summary: 'Payer said the payment had been approved.',
+      authorType: 'local_llm',
+    }),
+  });
+  assert.equal(ungrounded.status, 400);
+
+  const detail = await fetch(`${service.origin}/api/cases/${caseId}`, { headers: { [TOKEN_HEADER]: OPERATOR_TOKEN } });
+  assert.equal((await detail.json()).case.communications.length, 1);
+});
+
+test('the explanation and drafting routes are authorized and stay off when the model is disabled', async (t) => {
+  const service = await startServer();
+  t.after(() => service.stop());
+
+  const created = await fetch(`${service.origin}/api/cases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: JSON.stringify(confirmedCase(610)),
+  });
+  const caseId = (await created.json()).case.id;
+
+  const explanationBody = JSON.stringify({ status: 'PAID_VERIFIED', facts: [] });
+  const draftBody = JSON.stringify({ asAtDate: '2026-09-03', tone: 'neutral' });
+
+  // Reaching the port is not permission, for either suggestion route.
+  const unauthenticatedExplanation = await fetch(`${service.origin}/api/ai/explanations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: explanationBody,
+  });
+  assert.equal(unauthenticatedExplanation.status, 401);
+
+  const unauthenticatedDraft = await fetch(`${service.origin}/api/cases/${caseId}/drafts/suggestions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: draftBody,
+  });
+  assert.equal(unauthenticatedDraft.status, 401);
+
+  // With the assistant off both are a disabled feature, not an error.
+  const disabledExplanation = await fetch(`${service.origin}/api/ai/explanations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: explanationBody,
+  });
+  assert.equal(disabledExplanation.status, 503);
+  assert.match((await disabledExplanation.json()).error, /AI assistant is disabled/);
+
+  const disabledDraft = await fetch(`${service.origin}/api/cases/${caseId}/drafts/suggestions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: draftBody,
+  });
+  assert.equal(disabledDraft.status, 503);
+
+  // Nothing was drafted by any refused or disabled request.
+  const detail = await fetch(`${service.origin}/api/cases/${caseId}`, { headers: { [TOKEN_HEADER]: OPERATOR_TOKEN } });
+  assert.deepEqual((await detail.json()).case.drafts, []);
+});
+
+test('a drafting request cannot reach another operator case', async (t) => {
+  const service = await startServer();
+  t.after(() => service.stop());
+
+  const created = await fetch(`${service.origin}/api/cases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN },
+    body: JSON.stringify(confirmedCase(611)),
+  });
+  const caseId = (await created.json()).case.id;
+
+  // The second operator holds the exact case identifier and still gets nothing.
+  // Ownership is decided before the assistant is consulted, so the answer is
+  // 404 rather than leaking whether a model happens to be configured.
+  const crossOperator = await fetch(`${service.origin}/api/cases/${caseId}/drafts/suggestions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', [TOKEN_HEADER]: OTHER_TOKEN },
+    body: JSON.stringify({ asAtDate: '2026-09-03', tone: 'neutral' }),
+  });
+  assert.equal(crossOperator.status, 404);
+
+  const detail = await fetch(`${service.origin}/api/cases/${caseId}`, { headers: { [TOKEN_HEADER]: OPERATOR_TOKEN } });
+  assert.deepEqual((await detail.json()).case.drafts, []);
+});
+
+test('an escalated case is refused a send hand-off over HTTP, and says why', async (t) => {
+  const service = await startServer();
+  t.after(() => service.stop());
+  const headers = { 'Content-Type': 'application/json', [TOKEN_HEADER]: OPERATOR_TOKEN };
+
+  const created = await fetch(`${service.origin}/api/cases`, {
+    method: 'POST', headers, body: JSON.stringify(confirmedCase(801)),
+  });
+  const caseId = (await created.json()).case.id;
+
+  // A disputed debt: task 8's first named category.
+  await fetch(`${service.origin}/api/cases/${caseId}/eligibility`, {
+    method: 'PUT', headers, body: JSON.stringify({ answers: { ...IN_SCOPE_ANSWERS, debtDisputed: 'yes' } }),
+  });
+
+  // The case read carries the same verdict the gate will enforce.
+  const detail = await fetch(`${service.origin}/api/cases/${caseId}`, { headers: { [TOKEN_HEADER]: OPERATOR_TOKEN } });
+  const { delivery } = await detail.json();
+  assert.equal(delivery.allowed, false);
+  assert.equal(delivery.route, 'professional_review');
+  assert.ok(delivery.codes.includes('dispute'));
+
+  const draftResponse = await fetch(`${service.origin}/api/cases/${caseId}/drafts`, {
+    method: 'POST', headers, body: JSON.stringify({ subject: 'Payment reminder', body: 'Please arrange payment.' }),
+  });
+  const draft = (await draftResponse.json()).case.drafts[0];
+
+  // Approving the wording does not clear the case.
+  const approved = await fetch(`${service.origin}/api/cases/${caseId}/drafts/${draft.id}/reviews`, {
+    method: 'POST', headers, body: JSON.stringify({ action: 'approve', expectedVersion: 1 }),
+  });
+  assert.equal(approved.status, 200);
+
+  const refused = await fetch(`${service.origin}/api/cases/${caseId}/drafts/${draft.id}/send-authorizations`, {
+    method: 'POST', headers, body: JSON.stringify({ expectedVersion: 1 }),
+  });
+  assert.equal(refused.status, 409);
+  assert.match((await refused.json()).error, /qualified adviser/);
+
+  // The refusal is audited with the route and every code that fired.
+  const after = await fetch(`${service.origin}/api/cases/${caseId}`, { headers: { [TOKEN_HEADER]: OPERATOR_TOKEN } });
+  const events = (await after.json()).case.drafts[0].auditEvents;
+  const last = events.at(-1);
+  assert.equal(last.eventType, 'send_blocked');
+  assert.equal(last.details.reason, 'escalation_required');
+  assert.equal(last.details.route, 'professional_review');
+  assert.ok(last.details.codes.includes('dispute'));
+  // No authorization was recorded for an escalated case.
+  assert.equal(events.some((event) => event.eventType === 'send_authorized'), false);
 });

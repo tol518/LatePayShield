@@ -60,7 +60,10 @@ Mismatch, network failure, and proof failure are operational conditions, not suc
 
 ### Agreement dashboard
 
-- Status and plain-language meaning.
+- Status and plain-language meaning, re-read from the contract on a timer rather
+  than only at page load. When a refresh fails, keep the last good read visible
+  and say plainly that it may be out of date; never blank it, and never let it
+  pass as current.
 - Minimum qualifying amount and deadline.
 - Agreement ID and shortened terms hash.
 - Next valid action.
@@ -93,6 +96,38 @@ Mismatch, network failure, and proof failure are operational conditions, not suc
   treating database state as proof.
 - Accept concise human-entered communication timeline notes. Do not send a
   message, infer a reply, or treat a model-written draft as a sent communication.
+- Offer suggested timeline entries from correspondence the operator supplies,
+  when the local assistant is switched on. Each suggestion is labelled an
+  unconfirmed suggestion, shows the verbatim quote from the document that
+  supports it, and keeps every field editable. Confirm and discard act on one
+  event at a time; there is no accept-all. When the assistant is off the panel
+  is absent and the manual form is unchanged.
+- Show whether a stored timeline entry was typed by a person or confirmed from a
+  suggestion, and keep the quote it was grounded in available beside it.
+- Offer a plain-language explanation of the current status beside the status
+  chip, never instead of it. Present what the evidence supports and what it does
+  not establish as two sections, and mark the always-applicable limits as the
+  application's own statement rather than the assistant's.
+- Offer to draft a reminder from the confirmed case facts, with a tone choice
+  and an opt-in for mentioning that statutory interest may be available. A
+  generated reminder arrives as an unapproved draft in the same review list as a
+  typed one and is labelled as local-LLM authored. When the legal mention cannot
+  be included, say which condition was not met rather than quietly omitting it.
+- Show the approved sources a draft cites, with the snapshot version, beside the
+  draft they support.
+- When a case has left the automated path, say so above the drafting and
+  approval controls, not after them. Name the route — a qualified adviser, or an
+  unfinished case file — and list every reason that fired. Drafting and review
+  stay available; only the delivery hand-off is refused, and say that plainly.
+  Never present an unfinished case file as a matter for a solicitor.
+- Show outbound reminders as versioned drafts with an explicit `Draft`,
+  `Approved`, or `Rejected` label. Editing an approved draft must visibly remove
+  approval and require another review.
+- Keep the audit trail inspectable beside the draft: creation, edits, review
+  decisions, blocked send attempts, and authorised hand-offs all carry the exact
+  draft version and time.
+- Never label a send hand-off as delivery. Until a real delivery adapter exists,
+  say that approval was checked and audited but no message was sent.
 
 ### Eligibility and escalation
 

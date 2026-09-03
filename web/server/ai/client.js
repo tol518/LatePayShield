@@ -29,6 +29,7 @@ export async function chatCompletion({
   topP,
   maxTokens,
   chatTemplateKwargs,
+  responseFormat,
   label,
 }) {
   const config = readAiConfig();
@@ -56,6 +57,12 @@ export async function chatCompletion({
         top_p: topP,
         max_tokens: maxTokens,
         ...(chatTemplateKwargs ? { chat_template_kwargs: chatTemplateKwargs } : {}),
+        // SKILLS.md §8: "Structured-output or JSON mode where the runner
+        // supports it; schema validation regardless." The operator's MLX server
+        // accepts this field and ignores it (measured 3 September 2026), so do
+        // not treat sending it as a guarantee of well-formed output. The
+        // validator decides.
+        ...(responseFormat ? { response_format: responseFormat } : {}),
         stream: false,
       }),
       signal: AbortSignal.timeout(config.timeoutMs),

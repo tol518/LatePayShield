@@ -321,7 +321,7 @@ file and no clock; callers supply the already-parsed
 |---|---|---|
 | `snapshotVersion` | integer | Must equal `SNAPSHOT_VERSION` exactly; a version this build was not written to read is refused rather than guessed at. |
 | `fetchedAt`, `nextRefreshDue` | ISO instant | When the snapshot was retrieved and when it is next due for refresh. |
-| `approvedBy` | non-empty string or `null` | Who approved the snapshot's values. Must actually be of type `string`; `null` in the committed file. |
+| `approvedBy` | non-empty string or `null` | Who approved the snapshot's values. Must actually be of type `string`. `null` means unapproved, which disables every legal figure; the committed file was approved on 3 September 2026. |
 | `approvedAt` | ISO instant or `null` | When approval happened. `null` in the committed file. |
 | `sources` | non-empty array | What was retrieved and when. Each entry must be an allowlisted `https` URL with `status` exactly `"ok"`. |
 | `facts` | array of unique `id` | Sourced legal values, each with `id`, `volatility`, `statement`, `values`, `citationIds`, and `asOf`. |
@@ -390,12 +390,78 @@ The committed `data/uk-law/snapshot.json` holds the three required facts, the
 source consulted prescribes a day-count convention), four sources, and four
 citations: section 5A and section 6 of the Late Payment of Commercial Debts
 (Interest) Act 1998, article 4 of the Late Payment of Commercial Debts (Rate
-of Interest) (No. 3) Order 2002, and the Bank of England Bank Rate page. It
-ships with `approvedBy` and `approvedAt` both `null`, so calculation stays
-disabled until a person approves it. It covers only calendar year 2026
+of Interest) (No. 3) Order 2002, and the Bank of England Bank Rate page. It shipped with `approvedBy` and
+`approvedAt` both `null` so that calculation stayed disabled until a person
+approved it; that approval was given on 3 September 2026 after each figure was
+re-verified against its cited source, and removing it disables calculation
+again. It covers only calendar year 2026
 reference periods; a debt becoming late outside them is refused by the
 calculator (`no_reference_period`) rather than estimated.
+## Timeline entry provenance
+
+A `case_communications` row records how it came to exist, so a confirmed model
+proposal and a typed note are never confused:
+
+| Column | Meaning |
+|---|---|
+| `author_type` | `human` for a typed entry, `local_llm` for a confirmed S6 proposal. |
+| `source_quote` | The verbatim span of the supplied document the proposal was grounded in. `null` for a typed entry. |
+| `source_sha256` | SHA-256 of the exact document text the proposal was read from. `null` for a typed entry. |
+| `model_name` | The model that proposed it. `null` for a typed entry. |
+| `confirmed_by` | The operator who confirmed it. Recorded for every row. |
+| `confirmed_at` | When that confirmation happened. Recorded for every row. |
+
+A `local_llm` row without both `source_quote` and a valid `source_sha256` is
+refused: the reviewer would have nothing to check the summary against. The
+document itself is never stored — only the quote and the fingerprint (D-014).
+
+Allowed lifecycle:
+
+```text
+S6 proposal (browser state only, editable)
+    -> operator edits or discards it            -> nothing is written
+    -> operator confirms that one event         -> one case_communications row
+```
+
+There is no bulk accept and no endpoint that stores an unconfirmed proposal.
+Rows written before these columns existed are migrated in place and read as
+human entries.
+
+## Local message-draft lifecycle
+
+Message drafts are local application records, not contract state. Each draft is
+owned through its case and stores `purpose`, `authorType`, `subject`, `body`,
+`citations`, `status`, `version`, and approval timestamps/version. The first
+implemented purpose is `payment_reminder`. The public draft API creates only
+`human` drafts; `POST /api/cases/:id/drafts/suggestions` creates `local_llm`
+drafts from validated S2 output, and the model cannot approve either kind. A
+`local_llm` draft carries the citations its permitted legal sentence rested on,
+each recording the approved source id and the snapshot version
+(`snapshot-v<n>`); a purely factual reminder carries none, because it makes no
+legal statement.
+
+Allowed lifecycle transitions are:
+
+```text
+create -> draft v1
+edit   -> draft vN+1 (approval cleared)
+review -> approved vN | rejected vN
+send authorization -> allowed only when the case may be handled automatically
+                      AND approvedVersion == current version
+```
+
+The routing check runs first, so an approved draft on an escalated case is
+refused. Approving is a statement about the wording; escalation is a statement
+about the case.
+
+Audit events are append-only at the application layer: `draft_created`,
+`draft_updated`, `draft_approved`, `draft_rejected`, `send_blocked`, and
+`send_authorized`. A `send_blocked` event records why: `stale_version`,
+`not_approved`, or `escalation_required` — the last carrying the routing `route`
+and every escalation `code` that fired (task 8, D-018). A send authorization currently returns
+`transport: not_connected` and `sent: false`; it is a tested policy gate, not a
+delivery claim.
 
 ## Update triggers
 
-Update this file whenever canonical fields/order/normalization, hash/address encoding, storage, statuses, transitions, matching conditions, ABI, events, evidence ID semantics, or verifier trust changes.
+Update this file whenever canonical fields/order/normalization, hash/address encoding, storage, statuses, transitions, matching conditions, ABI, events, evidence ID semantics, timeline or draft provenance, or verifier trust changes.

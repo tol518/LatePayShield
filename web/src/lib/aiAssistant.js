@@ -42,9 +42,11 @@ export function fetchAssistantAvailability() {
 }
 
 const SUPPORTED_DOCUMENT_EXTENSION = /\.(pdf|xml|ubl)$/i;
-const DEFAULT_MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+export const DEFAULT_MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
-function documentPayload(file, maxBytes) {
+/* Shared with the timeline skill: the same limits and the same refusal
+ * messages apply to any document the operator selects. */
+export function documentPayload(file, maxBytes) {
   if (!SUPPORTED_DOCUMENT_EXTENSION.test(file.name)) {
     throw new Error('Choose a PDF, XML, or UBL invoice.');
   }

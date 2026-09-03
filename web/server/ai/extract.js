@@ -7,7 +7,7 @@
  */
 
 import { chatCompletion } from './client.js';
-import { parseJsonObject } from './text.js';
+import { ModelReplyError, parseJsonObject } from './text.js';
 import { validateExtraction } from './extractionSchema.js';
 import { EXTRACTION_SYSTEM_PROMPT, buildExtractionPrompt, buildRetryPrompt } from './prompts.js';
 
@@ -66,7 +66,7 @@ async function attempt(prompt, invoiceText, label) {
     ...EXTRACTION_SETTINGS,
   });
   const result = validateExtraction(parseJsonObject(content), invoiceText);
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) throw new ModelReplyError(result.error, result.detail);
   return result.value;
 }
 
@@ -84,10 +84,16 @@ export async function runExtraction(rawInvoiceText) {
     value = await attempt(buildExtractionPrompt(invoiceText), invoiceText, 'extract');
   } catch (firstError) {
     if (firstError.name === 'AiUnavailableError') throw firstError;
+    // Only the log-safe message is logged; `detail` may quote document-derived
+    // text and goes to the model alone (SKILLS.md §1).
     console.log(`[ai] extract rejected: ${firstError.message}; retrying once`);
-    // SKILLS.md §8: one retry with the validation error appended. A second
-    // failure is final — the caller falls back to manual entry.
-    value = await attempt(buildRetryPrompt(invoiceText, firstError.message), invoiceText, 'extract-retry');
+    // SKILLS.md §8: one retry, briefed with what was actually wrong. A generic
+    // "not valid JSON" wastes the single retry the spec allows.
+    value = await attempt(
+      buildRetryPrompt(invoiceText, firstError.detail ?? firstError.message),
+      invoiceText,
+      'extract-retry',
+    );
   }
 
   if (detectInstructionText(invoiceText) && value.skill === 'extraction') {

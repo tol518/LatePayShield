@@ -1,27 +1,27 @@
 {
-  "capturedAt": "2026-08-28T09:01:38.728Z",
+  "capturedAt": "2026-09-03T16:32:55.925Z",
   "network": "flare-testnet-coston2",
   "chainId": 114,
-  "contractAddress": "0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1",
+  "contractAddress": "0x1863Ee87a6C66c8a37F481B55c3acEcF3C506dfa",
   "agreementId": 3,
   "supplier": "0xBA098299018aa56eE7Cf2372d7017B331a413E0B",
   "terms": {
     "termsVersion": 1,
-    "invoiceNumber": "INV-2026-002",
+    "invoiceNumber": "INV-2026-001",
     "supplierName": "Maya Design Studio",
     "payerName": "Acme Ltd",
     "currency": "XRP_TESTNET",
     "amountDrops": "2000000",
-    "xrplDestination": "rfyWn53FgdwadvsdzeRiL2G3VXW4mv8vvi",
-    "destinationTag": "2026002",
-    "dueAt": "1787907996"
+    "xrplDestination": "rUp4ei4gHDntWTWwJ15AtqwusgtakurnmT",
+    "destinationTag": "2026001",
+    "dueAt": "1788460374"
   },
-  "invoiceHash": "0x756c1bd6217a69dd5e9cd76d1bd734b9ef1a06d82e5d7d3f985401cfff603221",
-  "xrplDestination": "rfyWn53FgdwadvsdzeRiL2G3VXW4mv8vvi",
-  "xrplDestinationHash": "0x57236eb7dac3174666001e88f463518e9a7fc0a79368115832a24e1238cb1bd1",
-  "startLedger": 20284260,
-  "dueAt": 1787907996,
-  "creationTransaction": "0x73b15b33fd2d58ac361d660ead716f1e79b8b253a43a9d1b6a0d5f4b49121269",
-  "blockNumber": 34586120,
-  "explorer": "https://coston2-explorer.flare.network/tx/0x73b15b33fd2d58ac361d660ead716f1e79b8b253a43a9d1b6a0d5f4b49121269"
+  "invoiceHash": "0x4420ed2915fdb2d604d8f0ff6ded7fda26f737924fde6f3fc5413a47e377b41a",
+  "xrplDestination": "rUp4ei4gHDntWTWwJ15AtqwusgtakurnmT",
+  "xrplDestinationHash": "0x59814b92e3fb864418090006780620ada535618b9427a73ebde0fd9cd0383e66",
+  "startLedger": 20455188,
+  "dueAt": 1788460374,
+  "creationTransaction": "0xe39d29fc0236fdaf49934858a1953c537d440367100bbac0ae37df3dfe38ed82",
+  "blockNumber": 34846316,
+  "explorer": "https://coston2-explorer.flare.network/tx/0xe39d29fc0236fdaf49934858a1953c537d440367100bbac0ae37df3dfe38ed82"
 }

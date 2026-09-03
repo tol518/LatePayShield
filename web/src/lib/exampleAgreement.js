@@ -15,6 +15,6 @@ export const EXAMPLE_AGREEMENT = {
   destination: 'rMt7…9xQ4',
   destinationTag: '1042',
   evidenceWindow: '25 Aug – 04 Sep 2026',
-  agreementId: '0x4A49…78B1',
+  agreementId: '#0007',
   termsHash: '0x9c1d…2f9a',
 };

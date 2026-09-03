@@ -39,6 +39,12 @@ repository-root `.env` for that, and for any token that should survive restarts.
 ```dotenv
 # operatorId:token pairs, comma separated; at least 24 characters each.
 WEB_OPERATOR_TOKENS=local-operator:paste-a-long-random-value-here
+
+# Optional. Invoice totals at or above this many minor units route a case to
+# professional review, which refuses the send hand-off. Defaults to 5000000
+# (£50,000). The browser's VITE_ELIGIBILITY_HIGH_VALUE_MINOR_UNITS is accepted
+# as a fallback so the panel and the gate cannot diverge.
+ELIGIBILITY_HIGH_VALUE_MINOR_UNITS=5000000
 ```
 
 Each operator owns the case files it creates and cannot read, list, or append to
@@ -71,7 +77,10 @@ carries no token and its API calls will be refused; use `npm start` instead.
 
 The service creates an ignored local SQLite database at `web/data/cases.sqlite`
 when the first case-file request is handled. It stores confirmed structured
-facts and communication notes, not raw invoice text or uploaded files. Set
+facts, communication notes, versioned message drafts, and append-only draft
+audit events, not raw invoice text or uploaded files. An approved draft may
+pass the server-side send-authorization gate, but no delivery transport is
+connected and the response remains `sent: false`. Set
 `CASE_DATABASE_PATH` only when a different local database path is needed.
 
 ## Enable Pay with Xaman
@@ -158,10 +167,15 @@ local testnet prototype.
 
 ## Enable the local AI assistant
 
-Optional, and off by default. Skill S1 of [`../docs/ai/SKILLS.md`](../docs/ai/SKILLS.md)
-reads pasted invoice text or a searchable PDF, XML, or UBL invoice and proposes
-the descriptive terms it can quote from the resulting text. The agreement form
-is complete without it: keep it switched off and nothing in the journey changes.
+Optional, and off by default. Four skills of [`../docs/ai/SKILLS.md`](../docs/ai/SKILLS.md)
+are implemented. **S1** reads pasted invoice text or a searchable PDF, XML, or
+UBL invoice and proposes the descriptive terms it can quote. **S6** reads
+correspondence for a saved case and proposes the dated events it can quote,
+which you confirm one at a time. **S3** explains the current agreement status in
+plain language beside the status chip. **S2** drafts a payment reminder from the
+confirmed case facts, saved unapproved into the same review gate as a reminder
+you type yourself. Every form is complete without the assistant: keep it
+switched off and nothing in the journey changes.
 
 Uploads are parsed by the loopback service and held in memory for that request
 only. Files are limited to 10 MB; PDFs are limited to 50 pages and must contain
@@ -206,6 +220,28 @@ Restart `npm run dev`. What the service guarantees, from
   amount is always yours to enter.
 - **Document text is quoted material, not instruction.** A document that tries to
   direct the model produces a refusal.
+- **A case that has left the automated path cannot hand a draft to a
+  transport.** `shared/escalation.js` refuses the send authorization for a
+  dispute, insolvency, a consumer or cross-border matter, court proceedings,
+  terms over 60 days, a limitation risk, a high-value invoice, or an incomplete
+  questionnaire — checked server-side before approval, so approving the wording
+  does not clear the case. It reads no chain, so the block holds when Coston2 is
+  unreachable.
+- **An explanation is not evidence, and a generated reminder is not an approved
+  one.** S3 narrates a status read from the contract and cannot report a
+  different one; the always-applicable limitations beneath it are fixed
+  application text, not model prose. S2's reminder is stored unapproved and
+  needs the same human approval and send-gate check as anything you type. A
+  reminder may mention statutory interest only when you ask for it, eligibility
+  reports a supported outcome, and `data/uk-law/snapshot.json` has been approved
+  by a person; otherwise the mention is withheld and the reason is shown.
+- **A proposed timeline event is not a case record.** S6 proposals live in the
+  browser only. Confirming one stores that single event with the quote it came
+  from, the document's SHA-256 fingerprint, the model name, and your operator
+  ID; discarding one writes nothing. There is no accept-all, and the case file
+  always shows which entries were confirmed from a suggestion. An event may
+  never carry a payment status, an identifier, a legal conclusion, or an amount
+  the document does not contain — the whole reply is rejected if it tries.
 - **Raw documents are not retained.** The text lives for the duration of the
   extraction request. If the user later confirms and saves a case, the case
   database keeps only the selected structured facts, grounded quotes, source
@@ -230,8 +266,12 @@ in testing. The button says so, and the rest of the page stays usable.
 | `src/lib/fdcPayment.js` | Browser client for the local, opt-in FDC job API. |
 | `src/lib/aiAssistant.js` | Browser client for the local AI API, and suggestion-to-form mapping. |
 | `src/components/AiInvoiceExtraction.jsx` | Optional upload-or-paste invoice panel and suggestion review. |
+| `src/components/TimelineSuggestions.jsx` | Optional S6 panel: proposed case events, each quoted, editable, and confirmed one at a time. |
+| `src/components/StatusExplanation.jsx` | Optional S3 panel: plain-language status narration beside the real status chip. |
+| `shared/statusLimitations.js` | The mandatory evidence limitations, as code rather than prompt (D-017). |
 | `src/components/CasePack.jsx` | Confirmed local case files, live agreement evidence, and communication notes. |
-| `server/ai/` | PDF/XML/UBL parsers, model client, S1 prompt, and the schema validator that gates every reply. |
+| `src/components/DraftApprovalPanel.jsx` | Versioned reminder drafts, human review controls, send-gate check, and visible audit trail. |
+| `server/ai/` | PDF/XML/UBL parsers, model client, S1 and S6 prompts, and the schema validators that gate every reply. |
 | `server/cases/` | Validated local SQLite case-file persistence, scoped to the owning operator. |
 | `server/access.js` | Operator-token authorization, loopback/`Origin`/`Host` policy, and bind refusal. |
 | `server/index.js` | Isolated Xaman service and testnet-only FDC job runner. |
@@ -267,5 +307,6 @@ break by accident:
   command chain, but it cannot access the Coston2 key or FDC configuration.
 - **The AI proposes; a human confirms.** No component fetches the model
   directly, and no model output reaches the UI without passing
-  `server/ai/extractionSchema.js`. New skills add a route and a validator there,
+  `server/ai/extractionSchema.js` or `server/ai/timelineSchema.js`. A proposed
+  timeline event is browser state until an operator confirms that one event. New skills add a route and a validator there,
   never a fetch from a component.

@@ -11,9 +11,13 @@ import {
   fetchCases,
   saveCaseEligibility,
 } from '../lib/casePack.js';
+import { fetchAssistantAvailability } from '../lib/aiAssistant.js';
 import { formatDate, formatDrops, shortenId } from '../lib/format.js';
 import { xrplTxUrl } from '../lib/network.js';
 import { CheckCircle, Clock, Document, InfoCircle, Progress, Warning } from './Icons.jsx';
+import DraftApprovalPanel from './DraftApprovalPanel.jsx';
+import TimelineSuggestions from './TimelineSuggestions.jsx';
+import StatusExplanation from './StatusExplanation.jsx';
 import StatusChip from './StatusChip.jsx';
 
 function todayLocalDateTime() {
@@ -87,6 +91,10 @@ export default function CasePack({ registryState, registeredDraft }) {
   const [error, setError] = useState('');
   const [communication, setCommunication] = useState(emptyCommunication);
   const [communicationError, setCommunicationError] = useState('');
+  // The suggestion panel is absent unless the operator's own model is
+  // configured and reachable. A failed health read is a disabled feature, not
+  // an error state (SKILLS.md §1, D-003).
+  const [assistant, setAssistant] = useState({ aiEnabled: false, aiReady: false });
 
   const agreements = registryState.agreements ?? [];
   const agreementById = useMemo(
@@ -111,6 +119,14 @@ export default function CasePack({ registryState, registeredDraft }) {
         setError(loadError?.message ?? 'Saved case files could not be loaded.');
         setPhase('failed');
       });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetchAssistantAvailability()
+      .then((health) => { if (active) setAssistant(health); })
+      .catch(() => { if (active) setAssistant({ aiEnabled: false, aiReady: false }); });
     return () => { active = false; };
   }, []);
 
@@ -191,7 +207,7 @@ export default function CasePack({ registryState, registeredDraft }) {
     }
   }
 
-  function eligibilitySaved(updated) {
+  function updateSelectedCase(updated) {
     setSelectedCase(updated);
     setCases((current) => current.map((item) => item.id === updated.id ? updated : item));
   }
@@ -318,7 +334,9 @@ export default function CasePack({ registryState, registeredDraft }) {
             communicationError={communicationError}
             onCommunicationChange={updateCommunication}
             onCommunicationSubmit={saveCommunication}
-            onEligibilitySaved={eligibilitySaved}
+            onEligibilitySaved={updateSelectedCase}
+            onCaseUpdate={updateSelectedCase}
+            assistant={assistant}
             saving={saving}
           />
         ) : null}
@@ -327,7 +345,34 @@ export default function CasePack({ registryState, registeredDraft }) {
   );
 }
 
-function CaseDetail({ caseFile, agreement, communication, communicationError, onCommunicationChange, onCommunicationSubmit, onEligibilitySaved, saving }) {
+function CaseDetail({
+  caseFile, agreement, communication, communicationError,
+  onCommunicationChange, onCommunicationSubmit, onEligibilitySaved, onCaseUpdate, assistant, saving,
+}) {
+  const assistantReady = Boolean(assistant?.aiReady);
+
+  /* Task 2's outcome is recomputed here from the stored answers and the live
+   * agreement, never read from storage (D-011). The reminder route uses it only
+   * to narrow what it will permit. */
+  const eligibility = useMemo(() => assess(caseFile.eligibility?.answers ?? {}, {
+    invoiceDueDate: caseFile.invoiceDueDate,
+    agreementDueAt: agreement?.dueAt ?? null,
+    invoiceAmountMinorUnits: caseFile.invoiceAmountMinorUnits,
+    highValueThresholdMinorUnits: HIGH_VALUE_THRESHOLD,
+  }), [caseFile, agreement]);
+
+  /* Bounded, non-identifying context for S3. The service drops anything
+   * identifier-shaped, and nothing here is an identifier by construction. */
+  const explanationFacts = useMemo(() => {
+    const facts = [];
+    if (agreement?.dueAt) {
+      facts.push({ name: 'agreement deadline', value: new Date(agreement.dueAt * 1000).toISOString().slice(0, 10) });
+    }
+    if (caseFile.invoiceDueDate) facts.push({ name: 'invoice due date', value: caseFile.invoiceDueDate });
+    if (caseFile.paymentTermsText) facts.push({ name: 'agreed payment terms', value: caseFile.paymentTermsText });
+    return facts;
+  }, [caseFile, agreement]);
+
   return (
     <div className="case-detail">
       <div className="card case-summary">
@@ -367,10 +412,30 @@ function CaseDetail({ caseFile, agreement, communication, communicationError, on
         )}
       </div>
 
+      <StatusExplanation
+        status={agreement?.uiStatus ?? null}
+        facts={explanationFacts}
+        assistantReady={assistantReady}
+      />
+
       <EligibilityQuestionnaire
         caseFile={caseFile}
         agreement={agreement}
         onSaved={onEligibilitySaved}
+      />
+
+      <DraftApprovalPanel
+        caseFile={caseFile}
+        onCaseUpdate={onCaseUpdate}
+        assistantReady={assistantReady}
+        eligibilityOutcome={eligibility.outcome}
+      />
+
+      <TimelineSuggestions
+        caseFile={caseFile}
+        assistantReady={assistantReady}
+        maxDocumentBytes={assistant?.aiMaxDocumentBytes}
+        onCaseUpdate={onCaseUpdate}
       />
 
       <div className="card case-communications">
@@ -384,7 +449,18 @@ function CaseDetail({ caseFile, agreement, communication, communicationError, on
               <li key={item.id}>
                 <time dateTime={item.occurredAt}>{new Date(item.occurredAt).toLocaleString('en-GB')}</time>
                 <strong>{item.subject || `${item.direction} ${item.channel}`}</strong>
-                <p>{item.summary}</p>
+                <div>
+                  <p>{item.summary}</p>
+                  {/* Provenance stays visible: a confirmed suggestion is never
+                      presented as though a person wrote it. */}
+                  {item.authorType === 'local_llm' ? (
+                    <p className="communication-provenance">
+                      <Document />
+                      Confirmed from a local-assistant suggestion. Quoted from the document:
+                      <q>{item.sourceQuote}</q>
+                    </p>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ol>
