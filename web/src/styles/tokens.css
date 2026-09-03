@@ -2,21 +2,22 @@
    Values follow docs/ui-language.md. Change them here, not in component styles. */
 
 :root {
-  /* Colour roles: a registrar's ledger, not a dashboard. Paper, not screen-blue. */
-  --canvas: #f6f3ea;
+  /* Colour roles, taken from the wordmark itself: royal blue, deep navy ink,
+     and a mint-green accent, on a near-white canvas. Nothing invented. */
+  --canvas: #f7f9fc;
   --surface: #ffffff;
-  --surface-quiet: #f1ede0;
-  --border: #e1dac5;
-  --border-strong: #c7bc9e;
-  --ink: #1b2430;
-  --muted: #5c5a4e;
-  --primary: #1e3a5c;
-  --primary-ink: #14283f;
-  --primary-wash: #eaeff3;
-  --primary-wash-border: #c9d3dc;
-  --positive: #1b6b3e;
-  --positive-wash: #eaf2ec;
-  --positive-wash-border: #c7dec8;
+  --surface-quiet: #eef1f6;
+  --border: #e3e8f0;
+  --border-strong: #cad3e0;
+  --ink: #0b1c4d;
+  --muted: #5b6472;
+  --primary: #0047ff;
+  --primary-ink: #0034b8;
+  --primary-wash: #eef2ff;
+  --primary-wash-border: #d3deff;
+  --positive: #067a55;
+  --positive-wash: #e8f6f0;
+  --positive-wash-border: #bfe6d5;
   --attention: #8a5a12;
   --attention-wash: #f7f0e1;
   --attention-wash-border: #e6d3ae;
@@ -26,13 +27,9 @@
   --danger: #96241a;
   --danger-wash: #fbeae7;
   --danger-wash-border: #edc9c2;
-  --testnet-ink: #3e6660;
-  --testnet-wash: #ebf1ef;
-  --testnet-wash-border: #c9dbd6;
-
-  /* Brass seal: the one warm accent, spent only on wayfinding and the brand mark. */
-  --seal: #a6791f;
-  --seal-ink: #7c5a16;
+  --testnet-ink: #46536b;
+  --testnet-wash: #eef1f6;
+  --testnet-wash-border: #d7deea;
 
   /* 8 px spacing scale */
   --s1: 8px;
@@ -47,9 +44,9 @@
   --radius-control: 8px;
   --radius-tag: 3px;
 
-  /* Type: a serif for headings carries the register of a formal record;
-     the grotesk and mono stay quiet underneath it. */
-  --display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  /* Type: one grotesk carries the whole interface, the wordmark is a sans
+     mark, not a serif one, so headings stay in the same family and lean on
+     weight and spacing instead of a second typeface. */
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -83,10 +80,9 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.2;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 p {
@@ -103,7 +99,7 @@ ol {
 a {
   color: var(--primary);
   text-decoration: none;
-  border-bottom: 1px solid rgb(30 58 92 / 0.35);
+  border-bottom: 1px solid rgb(0 71 255 / 0.3);
 }
 
 a:hover {

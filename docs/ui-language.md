@@ -45,29 +45,33 @@ Use semantic colours consistently. Colour supports meaning; it must never be the
 
 | Role | Suggested character | Use |
 |---|---|---|
-| Canvas | Warm paper, not screen-blue | Page background |
+| Canvas | Near-white, faintly cool | Page background |
 | Surface | White with a subtle neutral border | Cards, forms, tables |
-| Ink | Deep navy-charcoal | Primary text and headings |
-| Muted | Warm grey | Supporting text, labels, metadata |
-| Primary | Deep ink blue, not a bright screen blue | Main actions, links, active states |
-| Positive | Reserved green | Contract-verified outcome in the supplier's favour only |
+| Ink | Deep navy, from the wordmark | Primary text and headings |
+| Muted | Cool grey | Supporting text, labels, metadata |
+| Primary | Royal blue, from the wordmark | Main actions, links, active states |
+| Positive | Mint green, from the wordmark's accent dot | Contract-verified outcome in the supplier's favour only |
 | Attention | Amber-brown | Deadline passed, review required, caution: not yet a final outcome |
 | Overdue | Dark orange | Contract-verified non-payment: a final outcome, but against the supplier |
 | Danger | Red | Rejected proof, operational failure, destructive actions |
-| Testnet | Slate teal | Persistent environment indicator, kept visually apart from Primary |
-| Seal | Brass | Reserved for wayfinding and the brand mark; never used for status |
+| Testnet | Neutral slate | Persistent environment indicator, kept visually apart from Primary and Positive |
+
+Primary, Ink, and Positive are not free choices: they come directly from
+`web/public/LPTXT.png`, so the interface and the mark never drift apart. No
+other accent colour is introduced.
 
 Green and dark orange are both reserved for a *finalised* contract outcome; the
 difference between them is who the outcome favours, not how certain it is.
-Never use green, or the seal brass, for a payment that is merely submitted,
-detected, or awaiting verification.
+Never use green for a payment that is merely submitted, detected, or awaiting
+verification.
 
 ### Typography
 
-Headings use a serif display face (Source Serif 4), set with restraint, to give the
-record a formal register. Body text, controls, and labels stay on an accessible
-sans-serif interface typeface such as Inter, Geist, or system UI fonts, so the serif
-never competes with legibility at small sizes.
+One interface typeface throughout, an accessible sans-serif such as Inter,
+Geist, or system UI fonts, matching the wordmark's own sans letterforms.
+Headings are set in the same family as body text, distinguished by weight and
+spacing rather than a second typeface, which keeps the page feeling like one
+product rather than a template with a display font bolted on.
 
 - **Page title:** 28–32 px, semibold; describes the user task or agreement.
 - **Section title:** 18–20 px, semibold; names a clear group of information.

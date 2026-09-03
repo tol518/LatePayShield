@@ -1440,9 +1440,10 @@
   background: var(--surface-quiet);
 }
 
-/* The active section reads as an open tab in a dossier, not a filled pill. */
+/* An open tab, not a filled pill: colour marks the active item without a
+   block of background colour. */
 .sidebar__nav a.is-active {
-  border-left-color: var(--seal);
+  border-left-color: var(--primary);
   background: var(--surface-quiet);
   font-weight: 600;
 }
