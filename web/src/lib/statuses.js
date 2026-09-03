@@ -3,8 +3,11 @@
  * Keys match the state names in docs/design.md so a contract-derived state maps
  * straight onto a label. Two rules are encoded here on purpose:
  *
- *   - `tone: 'positive'` (green) is used only where the contract has finalised an
- *     outcome. A submitted, detected, or pending payment never gets it.
+ *   - `tone: 'positive'` (green) means the contract finalised an outcome in the
+ *     supplier's favour. A finalised outcome against the supplier gets its own
+ *     `tone: 'overdue'` (dark orange) instead, so "finalised" and "good news"
+ *     are never the same colour. A submitted, detected, or pending payment gets
+ *     neither.
  *   - Every status carries both an icon and text, so colour is never the only signal.
  */
 
@@ -34,14 +37,14 @@ export const STATUSES = {
     meaning: 'The contract accepted payment evidence matching its implemented rules.',
   },
   OVERDUE_PENDING: {
-    label: 'Deadline passed — verification pending',
+    label: 'Deadline passed, verification pending',
     tone: 'attention',
     icon: 'clock',
     meaning: 'The deadline has passed. This is not yet a non-payment result.',
   },
   OVERDUE_VERIFIED: {
     label: 'No qualifying payment found',
-    tone: 'positive',
+    tone: 'overdue',
     icon: 'check-circle',
     meaning: 'The contract accepted the relevant non-payment proof for the defined window.',
   },

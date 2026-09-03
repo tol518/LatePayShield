@@ -236,15 +236,20 @@
 }
 
 /* ---- Status chips ------------------------------------------------------ */
+/* An exhibit tag, not a pastel pill: a flat label on the surface colour with a
+   solid spine in the status colour, so a status still reads correctly printed
+   in black and white. */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: var(--s1);
-  padding: 5px 12px 5px 10px;
-  font-size: 14px;
+  padding: 5px 12px 5px 11px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-tag);
+  font-size: 13px;
   font-weight: 500;
-  border: 1px solid;
-  border-radius: 999px;
 }
 
 .chip svg {
@@ -254,40 +259,40 @@
 }
 
 .chip--neutral {
-  color: #3d4a56;
-  background: var(--surface-quiet);
-  border-color: var(--border-strong);
+  color: var(--muted);
 }
 
 .chip--primary {
   color: var(--primary-ink);
-  background: var(--primary-wash);
-  border-color: var(--primary-wash-border);
+  border-left-color: var(--primary);
 }
 
 .chip--testnet {
   color: var(--testnet-ink);
-  background: var(--testnet-wash);
-  border-color: var(--testnet-wash-border);
+  border-left-color: var(--testnet-ink);
 }
 
-/* Reserved for contract-verified outcomes only. */
+/* Reserved for a contract-verified outcome in the supplier's favour. */
 .chip--positive {
   color: var(--positive);
-  background: var(--positive-wash);
-  border-color: var(--positive-wash-border);
+  border-left-color: var(--positive);
 }
 
 .chip--attention {
   color: var(--attention);
-  background: var(--attention-wash);
-  border-color: var(--attention-wash-border);
+  border-left-color: var(--attention);
+}
+
+/* Reserved for a contract-verified outcome against the supplier: just as final
+   as positive, so it keeps the same solid-spine treatment, never green. */
+.chip--overdue {
+  color: var(--overdue);
+  border-left-color: var(--overdue);
 }
 
 .chip--danger {
   color: var(--danger);
-  background: var(--danger-wash);
-  border-color: var(--danger-wash-border);
+  border-left-color: var(--danger);
 }
 
 /* ---- Hero -------------------------------------------------------------- */
@@ -1422,18 +1427,24 @@
   align-items: center;
   gap: 13px;
   min-height: 46px;
-  padding: 0 13px;
-  color: #243a56;
+  padding: 0 13px 0 10px;
+  color: var(--ink);
   font-size: 14px;
   font-weight: 500;
   border: 0;
-  border-radius: 7px;
+  border-left: 3px solid transparent;
+  border-radius: 0 6px 6px 0;
 }
 
-.sidebar__nav a:hover,
+.sidebar__nav a:hover {
+  background: var(--surface-quiet);
+}
+
+/* The active section reads as an open tab in a dossier, not a filled pill. */
 .sidebar__nav a.is-active {
-  color: var(--primary);
-  background: var(--primary-wash);
+  border-left-color: var(--seal);
+  background: var(--surface-quiet);
+  font-weight: 600;
 }
 
 .sidebar__nav svg {
@@ -1465,7 +1476,8 @@
   width: 34px;
   height: 34px;
   flex: none;
-  background: #e9f1fd;
+  background: var(--surface-quiet);
+  border: 1px solid var(--border);
   border-radius: 50%;
 }
 
@@ -1617,7 +1629,7 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  color: #425670;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 500;
 }
@@ -1631,7 +1643,7 @@
   height: 1px;
   min-width: 28px;
   margin: 0 18px;
-  background: #b9c6d6;
+  background: var(--border-strong);
   flex: 1;
 }
 
@@ -1641,10 +1653,11 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  color: #324a68;
+  color: var(--ink);
   background: var(--surface);
-  border: 1px solid #9fb0c4;
+  border: 1px solid var(--border-strong);
   border-radius: 50%;
+  font-family: var(--mono);
   font-size: 12px;
 }
 
@@ -1667,8 +1680,11 @@
   gap: 28px;
 }
 
+/* A page in a binder sits flush, it does not float: definition comes from the
+   border, not an ambient shadow. */
 .card {
-  box-shadow: 0 3px 16px rgb(11 31 58 / 0.045);
+  border-color: var(--border-strong);
+  box-shadow: none;
 }
 
 .assistant-form {
@@ -1702,8 +1718,8 @@
   min-height: 132px;
   padding: 18px;
   color: var(--ink);
-  background: #fbfdff;
-  border: 1.5px dashed #5f9efa;
+  background: var(--primary-wash);
+  border: 1.5px dashed var(--primary-wash-border);
   border-radius: var(--radius-control);
   cursor: pointer;
 }
@@ -1780,7 +1796,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  color: #173d73;
+  color: var(--primary-ink);
   background: var(--primary-wash);
   border: 1px solid var(--primary-wash-border);
   border-radius: var(--radius-control);
@@ -1894,7 +1910,7 @@
   gap: 10px;
   margin-top: 22px;
   padding: 13px;
-  color: #173d73;
+  color: var(--primary-ink);
   background: var(--primary-wash);
   border: 1px solid var(--primary-wash-border);
   border-radius: var(--radius-control);
@@ -2792,7 +2808,8 @@
 
 .table-wrap {
   padding: 0;
-  box-shadow: 0 3px 16px rgb(11 31 58 / 0.04);
+  border-color: var(--border-strong);
+  box-shadow: none;
 }
 
 .table__caption {

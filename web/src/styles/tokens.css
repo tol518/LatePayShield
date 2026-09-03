@@ -2,30 +2,37 @@
    Values follow docs/ui-language.md. Change them here, not in component styles. */
 
 :root {
-  /* Colour roles */
-  --canvas: #f5f8fc;
+  /* Colour roles: a registrar's ledger, not a dashboard. Paper, not screen-blue. */
+  --canvas: #f6f3ea;
   --surface: #ffffff;
-  --surface-quiet: #f4f7fb;
-  --border: #dfe6ef;
-  --border-strong: #cbd6e3;
-  --ink: #0b1f3a;
-  --muted: #52657d;
-  --primary: #1164e8;
-  --primary-ink: #0b4fbd;
-  --primary-wash: #edf5ff;
-  --primary-wash-border: #c9ddfb;
-  --positive: #1c7048;
-  --positive-wash: #eaf5ef;
-  --positive-wash-border: #c9e5d6;
-  --attention: #9a5406;
-  --attention-wash: #fdf3e6;
-  --attention-wash-border: #f3ddbd;
-  --danger: #a8291f;
-  --danger-wash: #fdeeec;
-  --danger-wash-border: #f6d3ce;
-  --testnet-ink: #0b56c8;
-  --testnet-wash: #edf5ff;
-  --testnet-wash-border: #c8dcfb;
+  --surface-quiet: #f1ede0;
+  --border: #e1dac5;
+  --border-strong: #c7bc9e;
+  --ink: #1b2430;
+  --muted: #5c5a4e;
+  --primary: #1e3a5c;
+  --primary-ink: #14283f;
+  --primary-wash: #eaeff3;
+  --primary-wash-border: #c9d3dc;
+  --positive: #1b6b3e;
+  --positive-wash: #eaf2ec;
+  --positive-wash-border: #c7dec8;
+  --attention: #8a5a12;
+  --attention-wash: #f7f0e1;
+  --attention-wash-border: #e6d3ae;
+  --overdue: #a8420d;
+  --overdue-wash: #fbeee4;
+  --overdue-wash-border: #efcbae;
+  --danger: #96241a;
+  --danger-wash: #fbeae7;
+  --danger-wash-border: #edc9c2;
+  --testnet-ink: #3e6660;
+  --testnet-wash: #ebf1ef;
+  --testnet-wash-border: #c9dbd6;
+
+  /* Brass seal: the one warm accent, spent only on wayfinding and the brand mark. */
+  --seal: #a6791f;
+  --seal-ink: #7c5a16;
 
   /* 8 px spacing scale */
   --s1: 8px;
@@ -37,9 +44,12 @@
 
   /* Shape */
   --radius-card: 10px;
-  --radius-control: 7px;
+  --radius-control: 8px;
+  --radius-tag: 3px;
 
-  /* Type */
+  /* Type: a serif for headings carries the register of a formal record;
+     the grotesk and mono stay quiet underneath it. */
+  --display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -73,8 +83,9 @@ h1,
 h2,
 h3 {
   margin: 0;
+  font-family: var(--display);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
@@ -92,7 +103,7 @@ ol {
 a {
   color: var(--primary);
   text-decoration: none;
-  border-bottom: 1px solid rgb(31 95 204 / 0.3);
+  border-bottom: 1px solid rgb(30 58 92 / 0.35);
 }
 
 a:hover {
