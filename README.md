@@ -2,11 +2,15 @@
 
 **Finalist, UK Parliament Hackathon (September 2026)** — selected from over 1,000 applications.
 
+<img width="2172" height="724" alt="LatePayLogoTxt" src="https://github.com/user-attachments/assets/2974e26c-825f-41c7-9aac-864566e8fba4" />
+
 ## What this is
 
 Late payment is a trust problem: a supplier and a payer often end up disagreeing about whether, or when, an invoice was actually paid, with nothing to settle the argument but each side's own records. LatePay Shield turns a specific payment agreement into an outcome that neither party has to take the other's word for.
 
 It does not put invoices on a blockchain. A supplier and payer agree terms off-chain; only a hash of those terms and a payment-matching rule (destination, amount, deadline) go on Flare Coston2. When a real XRPL payment happens, the Flare Data Connector (FDC) independently attests to it, and the contract checks that proof itself before recording the agreement as paid or overdue. No party, including us, can write that outcome by hand, and the result stays checkable even if LatePay Shield itself disappears.
+
+LatePay Shield turns confirmed invoice terms into a testnet payment agreement. XRPL supplies the payment record; a Flare Coston2 contract is designed to accept paid or overdue outcomes only when the corresponding FDC proof passes its matching rules.
 
 **Prototype only:** testnets, no custody, no money movement, not legally binding, and not audited.
 
