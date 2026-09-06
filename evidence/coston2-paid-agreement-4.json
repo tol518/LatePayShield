@@ -1,15 +1,15 @@
 {
-  "capturedAt": "2026-08-28T13:26:51.796Z",
+  "capturedAt": "2026-09-03T20:47:41.132Z",
   "network": "flare-testnet-coston2",
   "chainId": 114,
-  "contractAddress": "0x4A49a77add9E7eeAD8813C3D51A9513EA60278B1",
+  "contractAddress": "0x1863Ee87a6C66c8a37F481B55c3acEcF3C506dfa",
   "agreementId": 4,
   "status": "PaidVerified",
-  "xrplTxHash": "0x397a2598098df01b2252741906724fa6b81c7b13664fc45d2bd8560ab264b47a",
-  "evidenceId": "0x795b5330f60ba5549b1f9ea8852ea745fb773b24e33120efa46e47691598ee7c",
-  "votingRoundId": 1438816,
-  "submissionTransaction": "0xf7ba803fd66e88fb9aecd7c06928c54507288e7109318a497c1a53706293e781",
-  "blockNumber": 34593638,
-  "proofEvidenceFile": "fdc-proof-1438816-397A2598098DF01B2252741906724FA6B81C7B13664FC45D2BD8560AB264B47A.json",
-  "explorer": "https://coston2-explorer.flare.network/tx/0xf7ba803fd66e88fb9aecd7c06928c54507288e7109318a497c1a53706293e781"
+  "xrplTxHash": "0x209e772179c0eab2a67cfc5f55b39cfb25076826f6bd41bfcd2a2988a35de7d7",
+  "evidenceId": "0xd9ee48a4ff7c9c4370cb616493538398246b2e1e438f3dba11232ec38b8f9895",
+  "votingRoundId": 1444870,
+  "submissionTransaction": "0x9b88e041ec26e29ac4d5a85fe110a120712f6085805f10f6e10b78eeb319134b",
+  "blockNumber": 34854723,
+  "proofEvidenceFile": "fdc-proof-1444870-209E772179C0EAB2A67CFC5F55B39CFB25076826F6BD41BFCD2A2988A35DE7D7.json",
+  "explorer": "https://coston2-explorer.flare.network/tx/0x9b88e041ec26e29ac4d5a85fe110a120712f6085805f10f6e10b78eeb319134b"
 }
