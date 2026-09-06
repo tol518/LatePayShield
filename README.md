@@ -1,5 +1,8 @@
 # LatePay Shield
 
+<img width="2172" height="724" alt="LatePayLogoTxt" src="https://github.com/user-attachments/assets/2974e26c-825f-41c7-9aac-864566e8fba4" />
+
+
 LatePay Shield turns confirmed invoice terms into a testnet payment agreement. XRPL supplies the payment record; a Flare Coston2 contract is designed to accept paid or overdue outcomes only when the corresponding FDC proof passes its matching rules.
 
 **Prototype only:** testnets, no custody, no money movement, not legally binding, and not audited.
