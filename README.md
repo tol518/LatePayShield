@@ -1,7 +1,14 @@
 # LatePay Shield
 
+**Finalist, UK Parliament Hackathon (September 2026)** — selected from over 1,000 applications.
+
 <img width="2172" height="724" alt="LatePayLogoTxt" src="https://github.com/user-attachments/assets/2974e26c-825f-41c7-9aac-864566e8fba4" />
 
+## What this is
+
+Late payment is a trust problem: a supplier and a payer often end up disagreeing about whether, or when, an invoice was actually paid, with nothing to settle the argument but each side's own records. LatePay Shield turns a specific payment agreement into an outcome that neither party has to take the other's word for.
+
+It does not put invoices on a blockchain. A supplier and payer agree terms off-chain; only a hash of those terms and a payment-matching rule (destination, amount, deadline) go on Flare Coston2. When a real XRPL payment happens, the Flare Data Connector (FDC) independently attests to it, and the contract checks that proof itself before recording the agreement as paid or overdue. No party, including us, can write that outcome by hand, and the result stays checkable even if LatePay Shield itself disappears.
 
 LatePay Shield turns confirmed invoice terms into a testnet payment agreement. XRPL supplies the payment record; a Flare Coston2 contract is designed to accept paid or overdue outcomes only when the corresponding FDC proof passes its matching rules.
 
@@ -183,13 +190,20 @@ under chain id 114 and asserts the deploy reverts with `VerifierOverrideNotAllow
 - `startLedger` is supplied by the agreement creator and cannot be checked
   on-chain. It is a claim, corroborated off-chain against the agreement's
   creation block.
-- `recordVerifiedNonPayment` pins its request to `expectedDrops - 1`, but the
-  live verifier matches at or above the requested amount rather than strictly
-  above it. The guard is still safe against a false overdue and is one drop
-  wider than intended; see the known issues in
-  [`docs/project-status.md`](docs/project-status.md).
 - The browser-triggered FDC job has not been demonstrated as one uninterrupted
   recorded GUI run.
+- The cross-platform `npm run check` fix removes the POSIX-only shell syntax that
+  made the command unrunnable on Windows, but it has only been confirmed on
+  macOS. No Windows machine was available.
+- The task 6 and task 8 interface surfaces — the status explanation, the reminder
+  suggestion controls, and the escalation block — have not been rendered in a
+  browser. Three render-only defects have already been found that way, and none
+  by a test.
+
+`recordVerifiedNonPayment` previously pinned its request to `expectedDrops - 1`
+on the interface's strictly-greater-than description, which the live verifier
+does not follow. That is now corrected to `expectedDrops` and proven against the
+live verifier (D-022).
 
 The address-hash formula, the Coston2 deployment, the verifier API key, the DA
 layer endpoint, and both FDC outcome branches were open questions earlier in the
