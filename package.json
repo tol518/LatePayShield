@@ -16,7 +16,7 @@
   "homepage": "https://github.com/tol518/LatePayShield#readme",
   "private": true,
   "devDependencies": {
-    "@flarenetwork/flare-periphery-contracts": "^0.1.52",
+    "@flarenetwork/flare-periphery-contracts": "^0.1.53",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "dotenv": "^17.4.2",
     "hardhat": "^2.29.1"
